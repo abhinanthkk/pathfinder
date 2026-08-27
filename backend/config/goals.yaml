@@ -1,0 +1,48 @@
+goals:
+  backend_developer:
+    name: "Backend Developer"
+    description: "Build server-side applications, APIs, and databases"
+    required_skills:
+      python_basics: 0.8
+      functions: 0.8
+      oop: 0.7
+      sql_basics: 0.7
+      sql_advanced: 0.5
+      rest_apis: 0.8
+      fastapi: 0.7
+      postgresql: 0.6
+      orm: 0.6
+      git_basics: 0.7
+      docker_basics: 0.6
+      testing: 0.5
+      authentication: 0.5
+
+  data_scientist:
+    name: "Data Scientist"
+    description: "Analyze data and build machine learning models"
+    required_skills:
+      python_basics: 0.8
+      numpy: 0.7
+      pandas: 0.8
+      statistics: 0.7
+      data_visualization: 0.7
+      exploratory_analysis: 0.7
+      machine_learning: 0.7
+      feature_engineering: 0.5
+      sql_basics: 0.5
+
+  frontend_developer:
+    name: "Frontend Developer"
+    description: "Build modern, interactive web interfaces"
+    required_skills:
+      html_basics: 0.9
+      css_basics: 0.8
+      responsive_design: 0.7
+      javascript_basics: 0.8
+      javascript_advanced: 0.7
+      react_basics: 0.8
+      react_advanced: 0.6
+      state_management: 0.6
+      api_integration: 0.7
+      css_frameworks: 0.6
+      typescript: 0.5

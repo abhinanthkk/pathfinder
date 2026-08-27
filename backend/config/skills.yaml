@@ -1,0 +1,412 @@
+domains:
+  backend:
+    name: "Backend Development"
+  data_science:
+    name: "Data Science"
+  frontend:
+    name: "Frontend Development"
+
+skills:
+  # ── Backend: Python ──
+  python_basics:
+    name: "Python Basics"
+    domain: backend
+    category: programming
+    description: "Variables, data types, control flow, functions"
+    prerequisites: []
+
+  functions:
+    name: "Functions & Modules"
+    domain: backend
+    category: programming
+    description: "Function definitions, arguments, return values, modules, packages"
+    prerequisites:
+      - python_basics
+
+  oop:
+    name: "Object-Oriented Programming"
+    domain: backend
+    category: programming
+    description: "Classes, objects, inheritance, polymorphism, encapsulation"
+    prerequisites:
+      - functions
+
+  error_handling:
+    name: "Error Handling"
+    domain: backend
+    category: programming
+    description: "Try/except, custom exceptions, error propagation"
+    prerequisites:
+      - functions
+
+  file_io:
+    name: "File I/O"
+    domain: backend
+    category: programming
+    description: "Reading/writing files, CSV, JSON handling"
+    prerequisites:
+      - python_basics
+
+  async_python:
+    name: "Async Programming"
+    domain: backend
+    category: programming
+    description: "asyncio, async/await, concurrent execution"
+    prerequisites:
+      - oop
+      - error_handling
+
+  testing:
+    name: "Testing"
+    domain: backend
+    category: programming
+    description: "Unit tests, pytest, mocking, test coverage"
+    prerequisites:
+      - functions
+      - error_handling
+
+  # ── Backend: Databases ──
+  sql_basics:
+    name: "SQL Fundamentals"
+    domain: backend
+    category: database
+    description: "SELECT, INSERT, UPDATE, DELETE, WHERE, JOIN"
+    prerequisites: []
+
+  sql_advanced:
+    name: "Advanced SQL"
+    domain: backend
+    category: database
+    description: "Subqueries, CTEs, window functions, indexing"
+    prerequisites:
+      - sql_basics
+
+  postgresql:
+    name: "PostgreSQL"
+    domain: backend
+    category: database
+    description: "PostgreSQL-specific features, pgAdmin, performance tuning"
+    prerequisites:
+      - sql_basics
+
+  orm:
+    name: "ORM with SQLAlchemy"
+    domain: backend
+    category: database
+    description: "Models, relationships, migrations, sessions"
+    prerequisites:
+      - oop
+      - sql_basics
+
+  database_design:
+    name: "Database Design"
+    domain: backend
+    category: database
+    description: "Normalization, ER diagrams, schema design"
+    prerequisites:
+      - sql_basics
+
+  # ── Backend: APIs ──
+  http_basics:
+    name: "HTTP Fundamentals"
+    domain: backend
+    category: api
+    description: "HTTP methods, status codes, headers, content types"
+    prerequisites: []
+
+  rest_apis:
+    name: "REST API Design"
+    domain: backend
+    category: api
+    description: "RESTful principles, resource design, versioning"
+    prerequisites:
+      - http_basics
+
+  fastapi:
+    name: "FastAPI"
+    domain: backend
+    category: framework
+    description: "Build APIs with FastAPI, Pydantic validation, dependency injection"
+    prerequisites:
+      - oop
+      - rest_apis
+
+  authentication:
+    name: "Authentication & Authorization"
+    domain: backend
+    category: api
+    description: "JWT, OAuth2, API keys, role-based access"
+    prerequisites:
+      - rest_apis
+      - oop
+
+  websockets:
+    name: "WebSockets"
+    domain: backend
+    category: api
+    description: "Real-time communication, WebSocket protocol"
+    prerequisites:
+      - http_basics
+      - async_python
+
+  # ── Backend: DevOps ──
+  git_basics:
+    name: "Git Basics"
+    domain: backend
+    category: devops
+    description: "Init, add, commit, branch, merge, pull"
+    prerequisites: []
+
+  git_advanced:
+    name: "Git Advanced"
+    domain: backend
+    category: devops
+    description: "Rebase, cherry-pick, bisect, hooks"
+    prerequisites:
+      - git_basics
+
+  docker_basics:
+    name: "Docker Fundamentals"
+    domain: backend
+    category: devops
+    description: "Containers, images, Dockerfile, docker-compose"
+    prerequisites: []
+
+  docker_compose:
+    name: "Docker Compose"
+    domain: backend
+    category: devops
+    description: "Multi-container apps, volumes, networks"
+    prerequisites:
+      - docker_basics
+
+  # ── Backend: Projects ──
+  cli_tool:
+    name: "CLI Tool Project"
+    domain: backend
+    category: project
+    description: "Build a command-line application with Python"
+    prerequisites:
+      - python_basics
+      - file_io
+
+  todo_api:
+    name: "Todo REST API"
+    domain: backend
+    category: project
+    description: "Build a complete Todo API with CRUD operations"
+    prerequisites:
+      - fastapi
+      - sql_basics
+
+  auth_api:
+    name: "Auth API Project"
+    domain: backend
+    category: project
+    description: "Build an API with user registration, login, JWT auth"
+    prerequisites:
+      - fastapi
+      - authentication
+      - postgresql
+
+  capstone_backend:
+    name: "Backend Capstone Project"
+    domain: backend
+    category: project
+    description: "Full-stack backend: API + database + auth + Docker"
+    prerequisites:
+      - fastapi
+      - postgresql
+      - docker_compose
+      - authentication
+
+  # ── Data Science: Python ──
+  numpy:
+    name: "NumPy"
+    domain: data_science
+    category: library
+    description: "Arrays, broadcasting, linear algebra basics"
+    prerequisites:
+      - python_basics
+
+  pandas:
+    name: "Pandas"
+    domain: data_science
+    category: library
+    description: "DataFrames, data cleaning, groupby, merge"
+    prerequisites:
+      - python_basics
+      - numpy
+
+  data_visualization:
+    name: "Data Visualization"
+    domain: data_science
+    category: library
+    description: "Matplotlib, Seaborn, plot types"
+    prerequisites:
+      - pandas
+
+  statistics:
+    name: "Statistics Fundamentals"
+    domain: data_science
+    category: theory
+    description: "Probability, distributions, hypothesis testing"
+    prerequisites:
+      - python_basics
+
+  exploratory_analysis:
+    name: "Exploratory Data Analysis"
+    domain: data_science
+    category: methodology
+    description: "EDA workflow, profiling, pattern discovery"
+    prerequisites:
+      - pandas
+      - statistics
+      - data_visualization
+
+  machine_learning:
+    name: "Machine Learning Basics"
+    domain: data_science
+    category: ml
+    description: "Supervised learning, regression, classification, model evaluation"
+    prerequisites:
+      - pandas
+      - numpy
+      - statistics
+
+  feature_engineering:
+    name: "Feature Engineering"
+    domain: data_science
+    category: ml
+    description: "Feature creation, selection, scaling, encoding"
+    prerequisites:
+      - pandas
+      - machine_learning
+
+  ml_projects:
+    name: "ML Project"
+    domain: data_science
+    category: project
+    description: "End-to-end ML project: data cleaning to model deployment"
+    prerequisites:
+      - machine_learning
+      - feature_engineering
+      - exploratory_analysis
+
+  # ── Frontend: Basics ──
+  html_basics:
+    name: "HTML Fundamentals"
+    domain: frontend
+    category: markup
+    description: "Elements, attributes, forms, semantic HTML"
+    prerequisites: []
+
+  css_basics:
+    name: "CSS Fundamentals"
+    domain: frontend
+    category: styling
+    description: "Selectors, box model, flexbox, grid"
+    prerequisites:
+      - html_basics
+
+  responsive_design:
+    name: "Responsive Design"
+    domain: frontend
+    category: styling
+    description: "Media queries, mobile-first, responsive layouts"
+    prerequisites:
+      - css_basics
+
+  javascript_basics:
+    name: "JavaScript Basics"
+    domain: frontend
+    category: programming
+    description: "Variables, functions, DOM, events, async"
+    prerequisites:
+      - html_basics
+      - css_basics
+
+  javascript_advanced:
+    name: "Advanced JavaScript"
+    domain: frontend
+    category: programming
+    description: "Closures, prototypes, modules, ES6+ features"
+    prerequisites:
+      - javascript_basics
+
+  typescript:
+    name: "TypeScript"
+    domain: frontend
+    category: programming
+    description: "Types, interfaces, generics, type guards"
+    prerequisites:
+      - javascript_advanced
+
+  # ── Frontend: Frameworks ──
+  react_basics:
+    name: "React Fundamentals"
+    domain: frontend
+    category: framework
+    description: "Components, JSX, props, state, hooks"
+    prerequisites:
+      - javascript_advanced
+
+  react_advanced:
+    name: "Advanced React"
+    domain: frontend
+    category: framework
+    description: "Context, custom hooks, performance, patterns"
+    prerequisites:
+      - react_basics
+
+  state_management:
+    name: "State Management"
+    domain: frontend
+    category: framework
+    description: "Zustand, Context API, Redux concepts"
+    prerequisites:
+      - react_basics
+
+  react_ROUTING:
+    name: "React Router"
+    domain: frontend
+    category: framework
+    description: "Client-side routing, nested routes, guards"
+    prerequisites:
+      - react_basics
+
+  api_integration:
+    name: "API Integration"
+    domain: frontend
+    category: skill
+    description: "Fetch API, Axios, loading states, error handling"
+    prerequisites:
+      - javascript_advanced
+      - react_basics
+
+  css_frameworks:
+    name: "CSS Frameworks"
+    domain: frontend
+    category: styling
+    description: "Tailwind CSS, component libraries"
+    prerequisites:
+      - css_basics
+
+  testing_frontend:
+    name: "Frontend Testing"
+    domain: frontend
+    category: skill
+    description: "Vitest, React Testing Library, component tests"
+    prerequisites:
+      - react_basics
+      - javascript_advanced
+
+  frontend_project:
+    name: "Frontend Project"
+    domain: frontend
+    category: project
+    description: "Build a complete React SPA with routing, state, API"
+    prerequisites:
+      - react_advanced
+      - state_management
+      - api_integration
