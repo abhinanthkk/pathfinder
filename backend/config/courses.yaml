@@ -1,0 +1,843 @@
+resources:
+  # ═══════════════════════════════════════
+  # BACKEND: Python
+  # ═══════════════════════════════════════
+  - id: py_basics_101
+    title: "Python Foundations"
+    description: "Complete introduction to Python: variables, types, control flow, and basic data structures."
+    domain: backend
+    skills: [python_basics]
+    difficulty: beginner
+    estimated_hours: 20
+    format: video
+    prerequisites: []
+
+  - id: py_basics_exercises
+    title: "Python Basics Practice"
+    description: "Hands-on exercises for Python fundamentals: 50 coding challenges with solutions."
+    domain: backend
+    skills: [python_basics]
+    difficulty: beginner
+    estimated_hours: 10
+    format: text
+    prerequisites: []
+
+  - id: functions_101
+    title: "Functions & Modules in Python"
+    description: "Master function definitions, arguments, return values, lambda, decorators, and module imports."
+    domain: backend
+    skills: [functions]
+    difficulty: beginner
+    estimated_hours: 12
+    format: video
+    prerequisites: [python_basics]
+
+  - id: functions_project
+    title: "Build a Utility Library"
+    description: "Project: Create a Python utility library with functions for string, math, and file operations."
+    domain: backend
+    skills: [functions, python_basics]
+    difficulty: beginner
+    estimated_hours: 6
+    format: project
+    prerequisites: [python_basics]
+
+  - id: oop_101
+    title: "Object-Oriented Python"
+    description: "Classes, objects, inheritance, polymorphism, dunder methods, and dataclasses."
+    domain: backend
+    skills: [oop]
+    difficulty: intermediate
+    estimated_hours: 15
+    format: video
+    prerequisites: [functions]
+
+  - id: oop_project
+    title: "OOP Design Patterns"
+    description: "Project: Implement common design patterns in Python using OOP principles."
+    domain: backend
+    skills: [oop]
+    difficulty: intermediate
+    estimated_hours: 10
+    format: project
+    prerequisites: [functions]
+
+  - id: error_handling_101
+    title: "Error Handling & Exceptions"
+    description: "Try/except blocks, custom exceptions, exception chaining, and best practices."
+    domain: backend
+    skills: [error_handling]
+    difficulty: beginner
+    estimated_hours: 6
+    format: video
+    prerequisites: [functions]
+
+  - id: file_io_101
+    title: "File I/O in Python"
+    description: "Reading and writing files, CSV parsing, JSON handling, pathlib."
+    domain: backend
+    skills: [file_io]
+    difficulty: beginner
+    estimated_hours: 6
+    format: video
+    prerequisites: [python_basics]
+
+  - id: cli_tool_project
+    title: "Build a CLI Tool"
+    description: "Project: Create a command-line application using argparse with file processing."
+    domain: backend
+    skills: [cli_tool, python_basics, file_io]
+    difficulty: beginner
+    estimated_hours: 8
+    format: project
+    prerequisites: [python_basics, file_io]
+
+  - id: async_python_101
+    title: "Async Programming in Python"
+    description: "asyncio, async/await, tasks, event loops, concurrent execution patterns."
+    domain: backend
+    skills: [async_python]
+    difficulty: advanced
+    estimated_hours: 12
+    format: video
+    prerequisites: [oop, error_handling]
+
+  - id: testing_101
+    title: "Testing with pytest"
+    description: "Unit testing, fixtures, parametrize, mocking, coverage reports."
+    domain: backend
+    skills: [testing]
+    difficulty: intermediate
+    estimated_hours: 8
+    format: video
+    prerequisites: [functions, error_handling]
+
+  - id: testing_project
+    title: "Test-Driven Development"
+    description: "Project: Build a feature using TDD with comprehensive test coverage."
+    domain: backend
+    skills: [testing]
+    difficulty: intermediate
+    estimated_hours: 6
+    format: project
+    prerequisites: [functions]
+
+  # ═══════════════════════════════════════
+  # BACKEND: Databases
+  # ═══════════════════════════════════════
+  - id: sql_basics_101
+    title: "SQL Fundamentals"
+    description: "Learn SQL from scratch: SELECT, WHERE, JOIN, GROUP BY, INSERT, UPDATE, DELETE."
+    domain: backend
+    skills: [sql_basics]
+    difficulty: beginner
+    estimated_hours: 12
+    format: video
+    prerequisites: []
+
+  - id: sql_basics_exercises
+    title: "SQL Practice Problems"
+    description: "60 SQL exercises covering basic to intermediate queries with an online editor."
+    domain: backend
+    skills: [sql_basics]
+    difficulty: beginner
+    estimated_hours: 10
+    format: text
+    prerequisites: []
+
+  - id: sql_advanced_101
+    title: "Advanced SQL"
+    description: "Window functions, CTEs, subqueries, pivoting, performance optimization."
+    domain: backend
+    skills: [sql_advanced]
+    difficulty: intermediate
+    estimated_hours: 10
+    format: video
+    prerequisites: [sql_basics]
+
+  - id: postgresql_101
+    title: "PostgreSQL Essentials"
+    description: "PostgreSQL installation, configuration, pgAdmin, extensions, and best practices."
+    domain: backend
+    skills: [postgresql]
+    difficulty: intermediate
+    estimated_hours: 8
+    format: video
+    prerequisites: [sql_basics]
+
+  - id: postgresql_project
+    title: "PostgreSQL Database Project"
+    description: "Project: Design and implement a PostgreSQL database for an e-commerce application."
+    domain: backend
+    skills: [postgresql, database_design]
+    difficulty: intermediate
+    estimated_hours: 10
+    format: project
+    prerequisites: [sql_basics]
+
+  - id: orm_101
+    title: "SQLAlchemy ORM"
+    description: "Models, relationships, sessions, migrations with Alembic, relationship patterns."
+    domain: backend
+    skills: [orm]
+    difficulty: intermediate
+    estimated_hours: 10
+    format: video
+    prerequisites: [oop, sql_basics]
+
+  - id: database_design_101
+    title: "Database Design Principles"
+    description: "Normalization, ER diagrams, indexing strategies, schema design patterns."
+    domain: backend
+    skills: [database_design]
+    difficulty: intermediate
+    estimated_hours: 8
+    format: video
+    prerequisites: [sql_basics]
+
+  # ═══════════════════════════════════════
+  # BACKEND: APIs
+  # ═══════════════════════════════════════
+  - id: http_basics_101
+    title: "HTTP Fundamentals"
+    description: "HTTP methods, status codes, headers, request/response cycle, content types."
+    domain: backend
+    skills: [http_basics]
+    difficulty: beginner
+    estimated_hours: 4
+    format: video
+    prerequisites: []
+
+  - id: rest_apis_101
+    title: "RESTful API Design"
+    description: "REST principles, resource design, URL patterns, versioning, HATEOAS basics."
+    domain: backend
+    skills: [rest_apis]
+    difficulty: intermediate
+    estimated_hours: 8
+    format: video
+    prerequisites: [http_basics]
+
+  - id: rest_project
+    title: "Design a REST API"
+    description: "Project: Design and document a RESTful API for a blog platform."
+    domain: backend
+    skills: [rest_apis]
+    difficulty: intermediate
+    estimated_hours: 6
+    format: project
+    prerequisites: [http_basics]
+
+  - id: fastapi_101
+    title: "FastAPI Fundamentals"
+    description: "Build modern APIs with FastAPI: path params, query params, Pydantic models, dependency injection."
+    domain: backend
+    skills: [fastapi]
+    difficulty: intermediate
+    estimated_hours: 12
+    format: video
+    prerequisites: [oop, rest_apis]
+
+  - id: fastapi_project
+    title: "FastAPI CRUD Application"
+    description: "Project: Build a complete CRUD API with FastAPI, SQLAlchemy, and Pydantic validation."
+    domain: backend
+    skills: [fastapi, orm]
+    difficulty: intermediate
+    estimated_hours: 10
+    format: project
+    prerequisites: [fastapi, sql_basics]
+
+  - id: authentication_101
+    title: "Authentication & Authorization"
+    description: "JWT tokens, OAuth2 flow, API key auth, role-based access control."
+    domain: backend
+    skills: [authentication]
+    difficulty: intermediate
+    estimated_hours: 8
+    format: video
+    prerequisites: [rest_apis, oop]
+
+  - id: auth_project
+    title: "Authentication API"
+    description: "Project: Implement user registration, login, JWT tokens, and protected routes."
+    domain: backend
+    skills: [authentication, fastapi]
+    difficulty: intermediate
+    estimated_hours: 8
+    format: project
+    prerequisites: [fastapi, authentication]
+
+  - id: websockets_101
+    title: "WebSockets with FastAPI"
+    description: "Real-time bidirectional communication using WebSockets in FastAPI."
+    domain: backend
+    skills: [websockets]
+    difficulty: advanced
+    estimated_hours: 6
+    format: video
+    prerequisites: [fastapi, async_python]
+
+  # ═══════════════════════════════════════
+  # BACKEND: DevOps
+  # ═══════════════════════════════════════
+  - id: git_basics_101
+    title: "Git & GitHub Basics"
+    description: "Version control fundamentals: init, add, commit, branch, merge, push, pull."
+    domain: backend
+    skills: [git_basics]
+    difficulty: beginner
+    estimated_hours: 6
+    format: video
+    prerequisites: []
+
+  - id: git_basics_project
+    title: "Git Workflow Project"
+    description: "Practice Git: branching strategies, merge conflict resolution, PR workflow."
+    domain: backend
+    skills: [git_basics]
+    difficulty: beginner
+    estimated_hours: 4
+    format: project
+    prerequisites: []
+
+  - id: git_advanced_101
+    title: "Advanced Git"
+    description: "Rebase, cherry-pick, bisect, interactive staging, Git hooks."
+    domain: backend
+    skills: [git_advanced]
+    difficulty: intermediate
+    estimated_hours: 6
+    format: video
+    prerequisites: [git_basics]
+
+  - id: docker_basics_101
+    title: "Docker Fundamentals"
+    description: "Containers, images, Dockerfile, volumes, networking basics."
+    domain: backend
+    skills: [docker_basics]
+    difficulty: intermediate
+    estimated_hours: 10
+    format: video
+    prerequisites: []
+
+  - id: docker_project
+    title: "Dockerize a Python App"
+    description: "Project: Containerize a FastAPI application with Docker."
+    domain: backend
+    skills: [docker_basics]
+    difficulty: intermediate
+    estimated_hours: 6
+    format: project
+    prerequisites: [docker_basics]
+
+  - id: docker_compose_101
+    title: "Docker Compose"
+    description: "Multi-container applications, service orchestration, volumes, networks."
+    domain: backend
+    skills: [docker_compose]
+    difficulty: intermediate
+    estimated_hours: 6
+    format: video
+    prerequisites: [docker_basics]
+
+  - id: docker_compose_project
+    title: "Full-Stack Docker Compose"
+    description: "Project: Orchestrate a FastAPI + PostgreSQL app with Docker Compose."
+    domain: backend
+    skills: [docker_compose, postgresql]
+    difficulty: intermediate
+    estimated_hours: 8
+    format: project
+    prerequisites: [docker_basics, postgresql]
+
+  # ═══════════════════════════════════════
+  # BACKEND: Capstone
+  # ═══════════════════════════════════════
+  - id: todo_api_project
+    title: "Todo REST API"
+    description: "Project: Build a complete Todo API with CRUD, validation, error handling, and tests."
+    domain: backend
+    skills: [fastapi, sql_basics, testing]
+    difficulty: intermediate
+    estimated_hours: 12
+    format: project
+    prerequisites: [fastapi, sql_basics]
+
+  - id: auth_api_project
+    title: "Full Auth API"
+    description: "Project: User management API with registration, login, roles, and JWT tokens."
+    domain: backend
+    skills: [fastapi, authentication, postgresql]
+    difficulty: intermediate
+    estimated_hours: 15
+    format: project
+    prerequisites: [fastapi, authentication]
+
+  - id: capstone_backend
+    title: "Backend Capstone: Task Manager"
+    description: "Project: Complete backend application with API, database, auth, Docker, and tests."
+    domain: backend
+    skills: [fastapi, postgresql, docker_compose, authentication, testing]
+    difficulty: advanced
+    estimated_hours: 25
+    format: project
+    prerequisites: [fastapi, postgresql, docker_basics, authentication]
+
+  # ═══════════════════════════════════════
+  # DATA SCIENCE: Python & Libraries
+  # ═══════════════════════════════════════
+  - id: numpy_101
+    title: "NumPy Fundamentals"
+    description: "Arrays, broadcasting, vectorized operations, linear algebra basics."
+    domain: data_science
+    skills: [numpy]
+    difficulty: beginner
+    estimated_hours: 10
+    format: video
+    prerequisites: [python_basics]
+
+  - id: numpy_exercises
+    title: "NumPy Practice"
+    description: "Hands-on exercises: array manipulation, broadcasting, linear algebra."
+    domain: data_science
+    skills: [numpy]
+    difficulty: beginner
+    estimated_hours: 6
+    format: text
+    prerequisites: [python_basics]
+
+  - id: pandas_101
+    title: "Pandas for Data Analysis"
+    description: "DataFrames, Series, indexing, groupby, merge, pivot tables."
+    domain: data_science
+    skills: [pandas]
+    difficulty: intermediate
+    estimated_hours: 14
+    format: video
+    prerequisites: [python_basics, numpy]
+
+  - id: pandas_project
+    title: "Data Cleaning Project"
+    description: "Project: Clean and transform a messy real-world dataset using Pandas."
+    domain: data_science
+    skills: [pandas]
+    difficulty: intermediate
+    estimated_hours: 8
+    format: project
+    prerequisites: [pandas]
+
+  - id: data_viz_101
+    title: "Data Visualization"
+    description: "Matplotlib, Seaborn, plot types, customizing charts, publication-quality figures."
+    domain: data_science
+    skills: [data_visualization]
+    difficulty: intermediate
+    estimated_hours: 8
+    format: video
+    prerequisites: [pandas]
+
+  - id: data_viz_project
+    title: "Visualization Dashboard"
+    description: "Project: Create an interactive data visualization dashboard."
+    domain: data_science
+    skills: [data_visualization, pandas]
+    difficulty: intermediate
+    estimated_hours: 6
+    format: project
+    prerequisites: [pandas, data_visualization]
+
+  - id: statistics_101
+    title: "Statistics for Data Science"
+    description: "Probability, distributions, hypothesis testing, confidence intervals, correlation."
+    domain: data_science
+    skills: [statistics]
+    difficulty: intermediate
+    estimated_hours: 12
+    format: video
+    prerequisites: [python_basics]
+
+  - id: eda_101
+    title: "Exploratory Data Analysis"
+    description: "EDA workflow: data profiling, pattern discovery, statistical summaries."
+    domain: data_science
+    skills: [exploratory_analysis]
+    difficulty: intermediate
+    estimated_hours: 8
+    format: video
+    prerequisites: [pandas, statistics, data_visualization]
+
+  - id: eda_project
+    title: "EDA Project"
+    description: "Project: Perform complete EDA on a Kaggle dataset with findings report."
+    domain: data_science
+    skills: [exploratory_analysis]
+    difficulty: intermediate
+    estimated_hours: 10
+    format: project
+    prerequisites: [pandas, data_visualization]
+
+  - id: ml_101
+    title: "Machine Learning Fundamentals"
+    description: "Supervised learning: regression, classification, decision trees, random forests, model evaluation."
+    domain: data_science
+    skills: [machine_learning]
+    difficulty: intermediate
+    estimated_hours: 20
+    format: video
+    prerequisites: [pandas, numpy, statistics]
+
+  - id: ml_project
+    title: "ML Classification Project"
+    description: "Project: Build a classification model from data loading to evaluation."
+    domain: data_science
+    skills: [machine_learning]
+    difficulty: intermediate
+    estimated_hours: 12
+    format: project
+    prerequisites: [machine_learning]
+
+  - id: feature_eng_101
+    title: "Feature Engineering"
+    description: "Feature creation, selection, scaling, encoding, dimensionality reduction."
+    domain: data_science
+    skills: [feature_engineering]
+    difficulty: intermediate
+    estimated_hours: 8
+    format: video
+    prerequisites: [pandas, machine_learning]
+
+  - id: ml_capstone
+    title: "ML Capstone Project"
+    description: "Project: End-to-end ML pipeline: data collection, EDA, feature engineering, modeling, deployment."
+    domain: data_science
+    skills: [machine_learning, feature_engineering, exploratory_analysis]
+    difficulty: advanced
+    estimated_hours: 30
+    format: project
+    prerequisites: [machine_learning, feature_engineering]
+
+  # ═══════════════════════════════════════
+  # FRONTEND: Basics
+  # ═══════════════════════════════════════
+  - id: html_basics_101
+    title: "HTML Fundamentals"
+    description: "HTML elements, attributes, forms, semantic HTML5, accessibility basics."
+    domain: frontend
+    skills: [html_basics]
+    difficulty: beginner
+    estimated_hours: 8
+    format: video
+    prerequisites: []
+
+  - id: html_project
+    title: "Build a Landing Page"
+    description: "Project: Create a responsive landing page using semantic HTML."
+    domain: frontend
+    skills: [html_basics]
+    difficulty: beginner
+    estimated_hours: 6
+    format: project
+    prerequisites: [html_basics]
+
+  - id: css_basics_101
+    title: "CSS Fundamentals"
+    description: "Selectors, box model, flexbox, grid, positioning, colors, typography."
+    domain: frontend
+    skills: [css_basics]
+    difficulty: beginner
+    estimated_hours: 12
+    format: video
+    prerequisites: [html_basics]
+
+  - id: css_project
+    title: "CSS Layout Challenge"
+    description: "Project: Recreate complex layouts using only Flexbox and Grid."
+    domain: frontend
+    skills: [css_basics]
+    difficulty: beginner
+    estimated_hours: 8
+    format: project
+    prerequisites: [css_basics]
+
+  - id: responsive_101
+    title: "Responsive Design"
+    description: "Media queries, mobile-first design, responsive images, fluid typography."
+    domain: frontend
+    skills: [responsive_design]
+    difficulty: intermediate
+    estimated_hours: 6
+    format: video
+    prerequisites: [css_basics]
+
+  - id: responsive_project
+    title: "Responsive Portfolio"
+    description: "Project: Build a fully responsive portfolio website."
+    domain: frontend
+    skills: [responsive_design]
+    difficulty: intermediate
+    estimated_hours: 8
+    format: project
+    prerequisites: [css_basics, responsive_design]
+
+  - id: js_basics_101
+    title: "JavaScript Basics"
+    description: "Variables, data types, functions, DOM manipulation, events, basic async."
+    domain: frontend
+    skills: [javascript_basics]
+    difficulty: beginner
+    estimated_hours: 20
+    format: video
+    prerequisites: [html_basics, css_basics]
+
+  - id: js_project
+    title: "Interactive Quiz App"
+    description: "Project: Build a quiz app with DOM manipulation and event handling."
+    domain: frontend
+    skills: [javascript_basics]
+    difficulty: beginner
+    estimated_hours: 8
+    format: project
+    prerequisites: [javascript_basics]
+
+  - id: js_advanced_101
+    title: "Advanced JavaScript"
+    description: "Closures, prototypes, async/await, modules, ES6+ features, event loop."
+    domain: frontend
+    skills: [javascript_advanced]
+    difficulty: intermediate
+    estimated_hours: 14
+    format: video
+    prerequisites: [javascript_basics]
+
+  - id: js_advanced_project
+    title: "API Dashboard"
+    description: "Project: Build a dashboard that fetches and displays data from a public API."
+    domain: frontend
+    skills: [javascript_advanced, api_integration]
+    difficulty: intermediate
+    estimated_hours: 10
+    format: project
+    prerequisites: [javascript_advanced]
+
+  - id: typescript_101
+    title: "TypeScript Fundamentals"
+    description: "Types, interfaces, generics, type guards, utility types, tsconfig."
+    domain: frontend
+    skills: [typescript]
+    difficulty: intermediate
+    estimated_hours: 10
+    format: video
+    prerequisites: [javascript_advanced]
+
+  # ═══════════════════════════════════════
+  # FRONTEND: Frameworks
+  # ═══════════════════════════════════════
+  - id: react_basics_101
+    title: "React Fundamentals"
+    description: "Components, JSX, props, state, useEffect, hooks basics."
+    domain: frontend
+    skills: [react_basics]
+    difficulty: intermediate
+    estimated_hours: 16
+    format: video
+    prerequisites: [javascript_advanced]
+
+  - id: react_project
+    title: "React Task Manager"
+    description: "Project: Build a task manager with components, state, and hooks."
+    domain: frontend
+    skills: [react_basics]
+    difficulty: intermediate
+    estimated_hours: 10
+    format: project
+    prerequisites: [react_basics]
+
+  - id: react_advanced_101
+    title: "Advanced React Patterns"
+    description: "Context, custom hooks, performance optimization, compound components."
+    domain: frontend
+    skills: [react_advanced]
+    difficulty: advanced
+    estimated_hours: 10
+    format: video
+    prerequisites: [react_basics]
+
+  - id: state_mgmt_101
+    title: "State Management"
+    description: "Zustand, Context API patterns, when to use global vs local state."
+    domain: frontend
+    skills: [state_management]
+    difficulty: intermediate
+    estimated_hours: 6
+    format: video
+    prerequisites: [react_basics]
+
+  - id: routing_101
+    title: "React Router"
+    description: "Client-side routing, nested routes, route guards, URL parameters."
+    domain: frontend
+    skills: [react_ROUTING]
+    difficulty: intermediate
+    estimated_hours: 6
+    format: video
+    prerequisites: [react_basics]
+
+  - id: api_integration_101
+    title: "API Integration in React"
+    description: "Fetch/Axios in React, loading states, error handling, data caching."
+    domain: frontend
+    skills: [api_integration]
+    difficulty: intermediate
+    estimated_hours: 6
+    format: video
+    prerequisites: [javascript_advanced, react_basics]
+
+  - id: tailwind_101
+    title: "Tailwind CSS"
+    description: "Utility-first CSS, configuration, custom themes, responsive design."
+    domain: frontend
+    skills: [css_frameworks]
+    difficulty: intermediate
+    estimated_hours: 6
+    format: video
+    prerequisites: [css_basics]
+
+  - id: tailwind_project
+    title: "Tailwind UI Components"
+    description: "Project: Build a reusable component library with Tailwind CSS."
+    domain: frontend
+    skills: [css_frameworks]
+    difficulty: intermediate
+    estimated_hours: 8
+    format: project
+    prerequisites: [css_frameworks]
+
+  - id: testing_frontend_101
+    title: "Frontend Testing"
+    description: "Vitest, React Testing Library, component tests, integration tests."
+    domain: frontend
+    skills: [testing_frontend]
+    difficulty: intermediate
+    estimated_hours: 8
+    format: video
+    prerequisites: [react_basics, javascript_advanced]
+
+  # ═══════════════════════════════════════
+  # FRONTEND: Capstone
+  # ═══════════════════════════════════════
+  - id: frontend_capstone
+    title: "Frontend Capstone: Dashboard App"
+    description: "Project: Full React SPA with routing, state management, API integration, charts, and responsive design."
+    domain: frontend
+    skills: [react_advanced, state_management, api_integration, css_frameworks]
+    difficulty: advanced
+    estimated_hours: 30
+    format: project
+    prerequisites: [react_advanced, state_management, api_integration]
+
+  # ═══════════════════════════════════════
+  # CROSS-DOMAIN: Assessments
+  # ═══════════════════════════════════════
+  - id: assessment_python
+    title: "Python Skills Assessment"
+    description: "Assessment: Test your Python fundamentals with 20 coding challenges."
+    domain: backend
+    skills: [python_basics]
+    difficulty: beginner
+    estimated_hours: 2
+    format: assessment
+    prerequisites: [python_basics]
+
+  - id: assessment_sql
+    title: "SQL Skills Assessment"
+    description: "Assessment: Write 15 SQL queries of increasing complexity."
+    domain: backend
+    skills: [sql_basics]
+    difficulty: beginner
+    estimated_hours: 2
+    format: assessment
+    prerequisites: [sql_basics]
+
+  - id: assessment_oop
+    title: "OOP Skills Assessment"
+    description: "Assessment: Design and implement a class hierarchy for a given problem."
+    domain: backend
+    skills: [oop]
+    difficulty: intermediate
+    estimated_hours: 2
+    format: assessment
+    prerequisites: [oop]
+
+  - id: assessment_fastapi
+    title: "FastAPI Skills Assessment"
+    description: "Assessment: Build a small API from specification, tested with automated checks."
+    domain: backend
+    skills: [fastapi]
+    difficulty: intermediate
+    estimated_hours: 3
+    format: assessment
+    prerequisites: [fastapi]
+
+  - id: assessment_javascript
+    title: "JavaScript Skills Assessment"
+    description: "Assessment: Solve 15 JavaScript problems covering closures, async, and DOM."
+    domain: frontend
+    skills: [javascript_advanced]
+    difficulty: intermediate
+    estimated_hours: 2
+    format: assessment
+    prerequisites: [javascript_advanced]
+
+  - id: assessment_react
+    title: "React Skills Assessment"
+    description: "Assessment: Build 3 React components and debug 2 broken components."
+    domain: frontend
+    skills: [react_basics]
+    difficulty: intermediate
+    estimated_hours: 3
+    format: assessment
+    prerequisites: [react_basics]
+
+  - id: assessment_ml
+    title: "ML Skills Assessment"
+    description: "Assessment: Build a classification model and evaluate its performance."
+    domain: data_science
+    skills: [machine_learning]
+    difficulty: intermediate
+    estimated_hours: 3
+    format: assessment
+    prerequisites: [machine_learning]
+
+  # ═══════════════════════════════════════
+  # BACKEND: Revision Resources
+  # ═══════════════════════════════════════
+  - id: sql_revision
+    title: "SQL Review & Practice"
+    description: "Review SQL fundamentals with focused practice on JOINs, subqueries, and aggregation."
+    domain: backend
+    skills: [sql_basics]
+    difficulty: beginner
+    estimated_hours: 4
+    format: text
+    prerequisites: []
+
+  - id: sql_practice_project
+    title: "SQL Practice Project"
+    description: "Project: Solve 20 real-world data analysis problems using SQL."
+    domain: backend
+    skills: [sql_basics]
+    difficulty: beginner
+    estimated_hours: 6
+    format: project
+    prerequisites: []
+
+  - id: python_revision
+    title: "Python Review & Practice"
+    description: "Review Python core concepts with focused coding exercises."
+    domain: backend
+    skills: [python_basics]
+    difficulty: beginner
+    estimated_hours: 4
+    format: text
+    prerequisites: []
