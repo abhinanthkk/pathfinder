@@ -1,64 +1,88 @@
-import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import useUserStore from '../store/useUserStore'
+import { useNavigate, Link } from 'react-router-dom'
+import { Compass, Sparkles, Repeat, TrendingUp } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import { Button } from '../components/ui/Button'
+
+const FEATURES = [
+  {
+    icon: Sparkles,
+    title: 'Smart profiling',
+    desc: 'AI understands your goal and current skills.',
+  },
+  {
+    icon: Repeat,
+    title: 'Adaptive paths',
+    desc: 'Roadmaps replan as you progress or get stuck.',
+  },
+  {
+    icon: TrendingUp,
+    title: 'Clear progress',
+    desc: 'Always know what to do next and why.',
+  },
+]
 
 export default function LandingPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const home = user ? '/dashboard' : '/signup'
+  const homeLabel = user ? 'Open dashboard' : 'Get started'
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="text-center max-w-2xl"
-      >
-        <div className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-500/10 border border-primary-500/20 text-primary-400 text-sm font-medium">
-          <span className="w-2 h-2 rounded-full bg-primary-400 animate-pulse" />
-          AI-Powered Learning
+    <div className="flex min-h-screen flex-col bg-surface-950">
+      <header className="flex items-center justify-between px-6 py-4">
+        <Link to="/" className="flex items-center gap-2.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700">
+            <Compass className="h-5 w-5 text-white" aria-hidden="true" />
+          </div>
+          <span className="text-lg font-bold tracking-tight text-white">Pathfinder</span>
+        </Link>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => navigate('/login')}>
+            Log in
+          </Button>
+        </div>
+      </header>
+
+      <main className="flex flex-1 flex-col items-center justify-center px-6 py-16">
+        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary-500/20 bg-primary-500/10 px-4 py-2 text-sm font-medium text-primary-400">
+          <span className="h-2 w-2 rounded-full bg-primary-400" aria-hidden="true" />
+          AI-powered learning
         </div>
 
-        <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-primary-400 via-primary-300 to-purple-400 bg-clip-text text-transparent">
+        <h1 className="mb-6 max-w-3xl text-center text-4xl font-bold leading-tight md:text-6xl">
           Pathfinder
         </h1>
 
-        <p className="text-xl text-surface-400 mb-10 leading-relaxed">
-          Your personalized, AI-powered learning roadmap. Tell us your goal, and we'll chart the path from where you are to where you want to be.
+        <p className="mb-10 max-w-2xl text-center text-lg leading-relaxed text-surface-400">
+          Your personalized, AI-powered learning roadmap. Tell us your goal, and we will chart the
+          path from where you are to where you want to be.
         </p>
 
-        <div className="flex gap-4 justify-center">
-          <button
-            onClick={() => navigate('/signup')}
-            className="px-8 py-3 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-semibold transition-all duration-200 shadow-lg shadow-primary-600/25 hover:shadow-primary-500/40"
-          >
-            Get Started
-          </button>
-          <button
-            onClick={() => navigate('/login')}
-            className="px-8 py-3 rounded-xl bg-surface-800 hover:bg-surface-700 text-surface-200 font-semibold transition-all duration-200 border border-surface-700"
-          >
-            Log In
-          </button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Button size="lg" onClick={() => navigate(home)}>
+            {homeLabel}
+          </Button>
+          <Button size="lg" variant="secondary" onClick={() => navigate('/login')}>
+            Log in
+          </Button>
         </div>
-      </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4, duration: 0.6 }}
-        className="mt-20 grid grid-cols-3 gap-8 text-center"
-      >
-        {[
-          { label: 'Smart Profiling', desc: 'AI understands your skills' },
-          { label: 'Adaptive Paths', desc: 'Replans when you fall behind' },
-          { label: 'Clear Progress', desc: 'Always know what to do next' },
-        ].map((item) => (
-          <div key={item.label} className="p-4">
-            <h3 className="text-sm font-semibold text-surface-200 mb-1">{item.label}</h3>
-            <p className="text-xs text-surface-500">{item.desc}</p>
-          </div>
-        ))}
-      </motion.div>
+        <div className="mt-20 grid w-full max-w-3xl grid-cols-1 gap-8 text-center sm:grid-cols-3">
+          {FEATURES.map((f) => (
+            <div key={f.title} className="p-4">
+              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-surface-800">
+                <f.icon className="h-6 w-6 text-primary-400" aria-hidden="true" />
+              </div>
+              <h3 className="text-sm font-semibold text-surface-200">{f.title}</h3>
+              <p className="mt-1 text-xs text-surface-500">{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </main>
+
+      <footer className="border-t border-surface-800 px-6 py-6 text-center text-xs text-surface-600">
+        Pathfinder · AI-powered personalized learning paths
+      </footer>
     </div>
   )
 }

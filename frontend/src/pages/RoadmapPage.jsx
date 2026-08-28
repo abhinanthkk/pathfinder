@@ -1,26 +1,26 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
-  ReactFlow,
-  ReactFlowProvider,
-  Background,
-  Controls,
-  useNodesState,
-  useEdgesState,
-  useReactFlow,
-  Handle,
-  Position,
+  ReactFlow, ReactFlowProvider, Background, Controls,
+  useNodesState, useEdgesState, useReactFlow, Handle, Position,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import PropTypes from 'prop-types'
+import { Map, RefreshCw } from 'lucide-react'
+import { AppShell } from '../components/layout/AppShell'
+import { PageHeader } from '../components/shared/PageHeader'
+import { Card } from '../components/ui/Card'
+import { Button } from '../components/ui/Button'
+import { StatusBadge } from '../components/shared/StatusBadge'
+import { EmptyState } from '../components/ui/EmptyState'
+import { ErrorState } from '../components/ui/ErrorState'
+import { Spinner } from '../components/ui/Spinner'
 import useUserStore from '../store/useUserStore'
 import usePathStore from '../store/usePathStore'
-import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import api from '../services/api'
 import {
-  NODE_W,
-  NODE_H,
-  MIL_W,
+  NODE_W, NODE_H, MIL_W,
   buildVisualRoadmap,
   computeSummary,
 } from '../utils/roadmapLayout'
@@ -34,10 +34,35 @@ const STATUS_META = {
   failed: { color: '#ef4444', border: '#ef4444', bg: '#2a0f0f', text: '#fca5a5', icon: '✕', label: 'Revisit' },
 }
 
+const GOAL_DATA_SHAPE = {
+  label: PropTypes.string,
+}
+const MILESTONE_DATA_SHAPE = {
+  number: PropTypes.number,
+  title: PropTypes.string,
+  icon: PropTypes.string,
+  hours: PropTypes.number,
+  weeks: PropTypes.number,
+  nodeCount: PropTypes.number,
+  isCurrent: PropTypes.bool,
+  isCompleted: PropTypes.bool,
+  isCollapsed: PropTypes.bool,
+  onToggle: PropTypes.func,
+}
+const RESOURCE_DATA_SHAPE = {
+  title: PropTypes.string,
+  status: PropTypes.string,
+  estimated_hours: PropTypes.number,
+  isCurrent: PropTypes.bool,
+  isNext: PropTypes.bool,
+  dimmed: PropTypes.bool,
+  onNodeClick: PropTypes.func,
+}
+
 function GoalNode({ data }) {
   return (
     <div
-      className="rounded-2xl px-6 py-4 text-center border-2"
+      className="rounded-2xl border-2 px-6 py-4 text-center"
       style={{
         width: NODE_W,
         background: 'linear-gradient(135deg, #312e8155, #0f172a)',
@@ -46,16 +71,17 @@ function GoalNode({ data }) {
       }}
     >
       <Handle type="source" position={Position.Bottom} style={{ background: '#6366f1', border: 'none' }} />
-      <div className="text-2xl mb-1">🎯</div>
+      <div className="mb-1 text-2xl" aria-hidden="true">🎯</div>
       <div className="text-base font-bold text-white leading-snug">{data.label}</div>
     </div>
   )
 }
+GoalNode.propTypes = { data: GOAL_DATA_SHAPE }
 
 function MilestoneNode({ data }) {
   return (
     <div
-      className="rounded-xl flex items-center gap-4 px-5 py-3 cursor-pointer border-2 select-none"
+      className="flex cursor-pointer select-none items-center gap-4 rounded-xl border-2 px-5 py-3"
       style={{
         width: MIL_W,
         background: data.isCurrent
@@ -67,32 +93,46 @@ function MilestoneNode({ data }) {
         boxShadow: data.isCurrent ? '0 6px 30px -6px rgba(129,140,248,0.4)' : 'none',
       }}
       onClick={data.onToggle}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          data.onToggle?.()
+        }
+      }}
       title={data.isCollapsed ? 'Expand milestone' : 'Collapse milestone'}
+      aria-expanded={!data.isCollapsed}
     >
       <Handle type="target" position={Position.Top} style={{ background: '#6366f1', border: 'none' }} />
-      <div className="text-2xl">{data.icon}</div>
-      <div className="flex-1 min-w-0">
-        <div className="text-[11px] font-semibold tracking-widest uppercase"
-          style={{ color: data.isCurrent ? '#a5b4fc' : data.isCompleted ? '#6ee7b7' : '#64748b' }}>
-          Milestone {data.number}{data.isCurrent ? ' • You are here' : ''}{data.isCompleted ? ' • Complete' : ''}
+      <div className="text-2xl" aria-hidden="true">{data.icon}</div>
+      <div className="min-w-0 flex-1">
+        <div
+          className="text-[11px] font-semibold uppercase tracking-widest"
+          style={{ color: data.isCurrent ? '#a5b4fc' : data.isCompleted ? '#6ee7b7' : '#64748b' }}
+        >
+          Milestone {data.number}
+          {data.isCurrent ? ' • You are here' : ''}
+          {data.isCompleted ? ' • Complete' : ''}
         </div>
-        <div className="text-lg font-bold text-white leading-tight truncate">{data.title}</div>
+        <div className="truncate text-lg font-bold text-white leading-tight">{data.title}</div>
       </div>
-      <div className="text-right shrink-0">
+      <div className="shrink-0 text-right">
         <div className="text-sm font-semibold" style={{ color: data.isCurrent ? '#c7d2fe' : '#94a3b8' }}>
           {data.nodeCount} {data.nodeCount === 1 ? 'step' : 'steps'}
         </div>
         <div className="text-xs" style={{ color: '#64748b' }}>
-          ~{data.hours}h {data.weeks ? `· ${data.weeks}w` : ''}
+          ~{data.hours}h{data.weeks ? ` · ${data.weeks}w` : ''}
         </div>
       </div>
-      <div className="text-surface-400 shrink-0 text-sm">
+      <div className="shrink-0 text-sm text-surface-400" aria-hidden="true">
         {data.isCollapsed ? '▸' : '▾'}
       </div>
       <Handle type="source" position={Position.Bottom} style={{ background: '#6366f1', border: 'none' }} />
     </div>
   )
 }
+MilestoneNode.propTypes = { data: MILESTONE_DATA_SHAPE }
 
 function ResourceNode({ data }) {
   const meta = STATUS_META[data.status] || STATUS_META.locked
@@ -101,21 +141,32 @@ function ResourceNode({ data }) {
 
   return (
     <div
-      className="rounded-2xl px-5 py-4 border-2 transition-all"
+      className="cursor-pointer rounded-2xl border-2 px-5 py-4 transition-all"
       style={{
         width: NODE_W,
         background: isCurrent ? '#141021' : meta.bg,
         borderColor: isCurrent ? STATUS_META.in_progress.border : isNext ? STATUS_META.available.border : meta.border,
-        boxShadow: isCurrent ? '0 8px 36px -8px rgba(245,158,11,0.45)' : isNext ? '0 4px 24px -8px rgba(99,102,241,0.35)' : 'none',
+        boxShadow: isCurrent
+          ? '0 8px 36px -8px rgba(245,158,11,0.45)'
+          : isNext
+            ? '0 4px 24px -8px rgba(99,102,241,0.35)'
+            : 'none',
         opacity: data.dimmed === undefined ? 1 : data.dimmed ? 0.3 : 1,
-        cursor: 'pointer',
       }}
       onClick={() => data.onNodeClick?.(data)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          data.onNodeClick?.(data)
+        }
+      }}
     >
       <Handle type="target" position={Position.Top} style={{ background: meta.border, border: 'none' }} />
-      <div className="flex items-center justify-between mb-2">
+      <div className="mb-2 flex items-center justify-between">
         <span
-          className="text-[10px] font-semibold uppercase tracking-wider rounded-full px-2 py-0.5"
+          className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
           style={{ background: `${meta.color}22`, color: meta.text }}
         >
           {meta.icon} {isCurrent ? 'You are here' : isNext ? 'Next step' : meta.label}
@@ -134,6 +185,7 @@ function ResourceNode({ data }) {
     </div>
   )
 }
+ResourceNode.propTypes = { data: RESOURCE_DATA_SHAPE }
 
 const nodeTypes = { goal: GoalNode, milestone: MilestoneNode, resource: ResourceNode }
 
@@ -151,7 +203,7 @@ function RoadmapFlow({ rfNodes, edges, onNodesChange, onEdgesChange, currentKey,
         try {
           setCenter(cx, cy, { zoom: 0.85, duration: 400 })
         } catch {
-          /* viewport not ready */
+          // viewport not ready
         }
       }
       setFitted(true)
@@ -174,43 +226,121 @@ function RoadmapFlow({ rfNodes, edges, onNodesChange, onEdgesChange, currentKey,
       proOptions={{ hideAttribution: true }}
     >
       <Background color="#1e293b" gap={24} size={1} />
-      <Controls className="!bg-surface-800 !border-surface-700 !rounded-xl" position="bottom-left" />
+      <Controls position="bottom-left" />
     </ReactFlow>
   )
+}
+RoadmapFlow.propTypes = {
+  rfNodes: PropTypes.array,
+  edges: PropTypes.array,
+  onNodesChange: PropTypes.func,
+  onEdgesChange: PropTypes.func,
+  currentKey: PropTypes.string,
+  onMilestoneClick: PropTypes.func,
+  onHoverNode: PropTypes.func,
+}
+
+function ProgressSummary({ summary }) {
+  const bar = `${Math.min(100, Math.max(0, summary.progress))}%`
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div>
+        <div className="text-xs uppercase tracking-wider text-surface-500">Your goal</div>
+        <div className="font-semibold text-white">{summary.goal}</div>
+      </div>
+      <div>
+        <div className="text-xs uppercase tracking-wider text-surface-500">
+          Progress · {summary.completedSteps}/{summary.totalSteps} steps
+        </div>
+        <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-surface-800">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-primary-500 to-emerald-500 transition-all"
+            style={{ width: bar }}
+          />
+        </div>
+        <div className="mt-1 text-sm text-surface-400">{summary.progress}% complete</div>
+      </div>
+      <div>
+        <div className="text-xs uppercase tracking-wider text-surface-500">Current milestone</div>
+        <div className="font-semibold text-white">
+          {summary.currentMilestoneNumber || '—'}
+        </div>
+        <div className="text-xs text-surface-500">Current step: {summary.current?.title || '—'}</div>
+      </div>
+      <div>
+        <div className="text-xs uppercase tracking-wider text-surface-500">Next up</div>
+        <div className="font-semibold text-white">{summary.next?.title || 'Final steps'}</div>
+        <div className="text-xs text-surface-500">
+          Estimated remaining: {Math.round(summary.remainingHours)}h
+        </div>
+      </div>
+    </div>
+  )
+}
+ProgressSummary.propTypes = {
+  summary: PropTypes.shape({
+    progress: PropTypes.number,
+    goal: PropTypes.string,
+    completedSteps: PropTypes.number,
+    totalSteps: PropTypes.number,
+    currentMilestoneNumber: PropTypes.number,
+    current: PropTypes.shape({ title: PropTypes.string }),
+    next: PropTypes.shape({ title: PropTypes.string }),
+    remainingHours: PropTypes.number,
+  }),
 }
 
 export default function RoadmapPage() {
   const navigate = useNavigate()
-  const { userId, profile } = useUserStore()
-  const { logout } = useAuth()
-  const { path, setPath, setLoading, loading } = usePathStore()
+  const { profile } = useUserStore()
+  const toast = useToast()
+  const { path, setPath, loading, setLoading } = usePathStore()
   const [selectedNode, setSelectedNode] = useState(null)
   const [showExplanation, setShowExplanation] = useState(false)
   const [explanation, setExplanation] = useState('')
   const [explanationLoading, setExplanationLoading] = useState(false)
   const [collapsedMilestones, setCollapsedMilestones] = useState([])
   const [hoveredNode, setHoveredNode] = useState(null)
+  const [loadError, setLoadError] = useState(false)
+  const currentKeyRef = useRef(null)
 
   const [rfNodes, setNodes, onNodesChange] = useNodesState([])
   const [rfEdges, setEdges, onEdgesChange] = useEdgesState([])
-  const currentKeyRef = useRef(null)
+
+  const loadPath = useCallback(async () => {
+    setLoading(true)
+    setLoadError(false)
+    try {
+      let existingPath
+      try {
+        existingPath = await api.getPath()
+      } catch {
+        existingPath = await api.generatePath()
+      }
+      setPath(existingPath)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [setLoading, setPath])
 
   useEffect(() => {
-    if (!userId) {
-      navigate('/onboarding')
-    }
-  }, [userId, navigate])
-
-  useEffect(() => {
-    if (userId) {
-      loadPath()
-    }
-  }, [userId])
+    loadPath()
+  }, [loadPath])
 
   useEffect(() => {
     if (path?.milestones?.length) {
-      const handleResourceClick = (node) => setSelectedNode({ ...node, marker: node.marker || '' })
-      const { nodes, edges, currentKey } = buildVisualRoadmap(path, profile, collapsedMilestones, handleResourceClick)
+      const handleResourceClick = (node) => {
+        setShowExplanation(false)
+        setSelectedNode({ ...node, marker: node.marker || '' })
+      }
+      const { nodes, edges, currentKey } = buildVisualRoadmap(
+        path,
+        profile,
+        collapsedMilestones,
+        handleResourceClick
+      )
       setNodes(nodes)
       setEdges(edges)
       currentKeyRef.current = currentKey
@@ -238,23 +368,6 @@ export default function RoadmapPage() {
     )
   }, [hoveredNode, rfEdges, setNodes])
 
-  const loadPath = async () => {
-    setLoading(true)
-    try {
-      let existingPath
-      try {
-        existingPath = await api.getPath()
-      } catch {
-        existingPath = await api.generatePath()
-      }
-      setPath(existingPath)
-    } catch (e) {
-      console.error('Failed to load path:', e)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const toggleMilestone = (node) => {
     const num = node.data?.number
     if (!num) return
@@ -271,7 +384,7 @@ export default function RoadmapPage() {
       const res = await api.explainRecommendation(selectedNode.resource_id)
       setExplanation(res.explanation)
     } catch {
-      setExplanation(`"${selectedNode.title}" was recommended to help you progress toward your goal.`)
+      setExplanation(`“${selectedNode.title}” was recommended to help you progress toward your goal.`)
     } finally {
       setExplanationLoading(false)
     }
@@ -284,219 +397,168 @@ export default function RoadmapPage() {
       if (res.adaptation) {
         usePathStore.getState().addAdaptation(res.adaptation)
       }
+      const statusLabel = status.replace('_', ' ')
+      toast.success(`Marked as ${statusLabel}`)
       setSelectedNode(null)
       loadPath()
-    } catch (e) {
-      console.error('Failed to update progress:', e)
+    } catch {
+      toast.error('We couldn’t update your progress. Please try again.')
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-surface-400">Generating your learning path...</p>
-        </div>
-      </div>
-    )
-  }
-
-  const pct = summary.progress
-
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      <header className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-surface-800">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/')} className="text-surface-400 hover:text-white transition-colors">
-            ← Pathfinder
-          </button>
-          <h1 className="text-lg font-semibold text-white">Your Learning Roadmap</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          {path && (
-            <span className="text-sm text-surface-400">
-              {path.total_estimated_hours}h · {path.estimated_completion_date}
-            </span>
-          )}
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="px-4 py-2 rounded-lg bg-surface-800 text-surface-300 hover:bg-surface-700 text-sm transition-colors"
-          >
-            Dashboard
-          </button>
-          <button
-            onClick={() => {
-              logout()
-              navigate('/login')
-            }}
-            className="px-4 py-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 text-sm transition-colors"
-          >
-            Log Out
-          </button>
-        </div>
-      </header>
+    <AppShell>
+      <PageHeader
+        icon={Map}
+        title="Your learning roadmap"
+        description="Follow the path from where you are to your goal. Select a step to get details."
+        actions={
+          <Button variant="secondary" onClick={loadPath} disabled={loading}>
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            Refresh
+          </Button>
+        }
+      />
 
-      <div className="flex-shrink-0 border-b border-surface-800 bg-surface-900/60 px-6 py-4">
-        <ProgressSummary summary={summary} />
-      </div>
-
-      <div className="flex-1 relative min-h-0">
-        {rfNodes.length > 0 ? (
-          <ReactFlowProvider>
-            <RoadmapFlow
-              rfNodes={rfNodes}
-              edges={rfEdges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              currentKey={currentKeyRef.current}
-              onMilestoneClick={toggleMilestone}
-              onHoverNode={setHoveredNode}
-            />
-          </ReactFlowProvider>
-        ) : (
-          <div className="min-h-[60vh] flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-surface-400 mb-4">No learning path generated yet</p>
-              <button
-                onClick={loadPath}
-                className="px-6 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-medium transition-all"
-              >
-                Generate Path
-              </button>
-            </div>
-          </div>
+      <div className="mt-8 space-y-6">
+        {loading && !path && (
+          <Card className="flex items-center justify-center py-20">
+            <Spinner label="Building your learning path…" />
+          </Card>
         )}
 
-        <AnimatePresence>
-          {selectedNode && (
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute right-0 top-0 h-full w-96 bg-surface-900 border-l border-surface-700 p-6 overflow-y-auto z-20"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <span className="text-xs font-medium text-primary-400">{selectedNode.marker || 'Learning step'}</span>
-                  <h2 className="text-xl font-bold text-white mt-1">{selectedNode.title}</h2>
-                </div>
-                <button
-                  onClick={() => setSelectedNode(null)}
-                  className="text-surface-400 hover:text-white transition-colors text-xl"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-sm font-medium capitalize" style={{ color: STATUS_META[selectedNode.status]?.color || '#94a3b8' }}>
-                  {selectedNode.status.replace('_', ' ')}
-                </span>
-                <span className="text-surface-500 text-sm">·</span>
-                <span className="text-sm text-surface-400">{selectedNode.estimated_hours}h estimated</span>
-              </div>
-
-              <div className="space-y-3 mb-6">
-                <button
-                  onClick={handleExplain}
-                  className="w-full py-2.5 rounded-xl bg-surface-800 border border-surface-700 hover:border-primary-500 text-surface-200 text-sm font-medium transition-all"
-                >
-                  💡 Why was this recommended?
-                </button>
-
-                {selectedNode.status === 'available' && (
-                  <button
-                    onClick={() => handleProgress('in_progress')}
-                    className="w-full py-2.5 rounded-xl bg-amber-600/20 border border-amber-500/30 text-amber-400 text-sm font-medium transition-all hover:bg-amber-600/30"
-                  >
-                    🔄 Start Learning
-                  </button>
-                )}
-
-                {selectedNode.status === 'in_progress' && (
-                  <>
-                    <button
-                      onClick={() => handleProgress('completed')}
-                      className="w-full py-2.5 rounded-xl bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 text-sm font-medium transition-all hover:bg-emerald-600/30"
-                    >
-                      ✅ Mark Complete
-                    </button>
-                    <button
-                      onClick={() => handleProgress('failed')}
-                      className="w-full py-2.5 rounded-xl bg-red-600/20 border border-red-500/30 text-red-400 text-sm font-medium transition-all hover:bg-red-600/30"
-                    >
-                      ❌ Mark Failed
-                    </button>
-                  </>
-                )}
-
-                {(selectedNode.status === 'available' || selectedNode.status === 'in_progress') && (
-                  <button
-                    onClick={() => handleProgress('skipped')}
-                    className="w-full py-2.5 rounded-xl bg-surface-800 border border-surface-700 text-surface-400 text-sm font-medium transition-all hover:bg-surface-700"
-                  >
-                    ⏭️ Skip
-                  </button>
-                )}
-              </div>
-
-              {showExplanation && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="bg-surface-800 rounded-xl p-4 border border-surface-700"
-                >
-                  <h4 className="text-sm font-semibold text-primary-400 mb-2">Why this was recommended</h4>
-                  {explanationLoading ? (
-                    <div className="flex gap-1 py-2">
-                      <div className="w-2 h-2 bg-surface-500 rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-surface-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    </div>
-                  ) : (
-                    <p className="text-sm text-surface-300 leading-relaxed">{explanation}</p>
-                  )}
-                </motion.div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  )
-}
-
-function ProgressSummary({ summary }) {
-  const bar = `${Math.min(100, Math.max(0, summary.progress))}%`
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div>
-        <div className="text-xs uppercase tracking-wider text-surface-500 mb-1">Your Goal</div>
-        <div className="text-white font-semibold">{summary.goal}</div>
-      </div>
-      <div>
-        <div className="text-xs uppercase tracking-wider text-surface-500 mb-1">
-          Overall Progress · {summary.completedSteps}/{summary.totalSteps} steps
-        </div>
-        <div className="h-2.5 w-full rounded-full bg-surface-800 overflow-hidden mt-2">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-primary-500 to-emerald-500 transition-all"
-            style={{ width: bar }}
+        {loadError && !loading && (
+          <ErrorState
+            title="Couldn't load your roadmap"
+            description="We ran into a problem fetching your learning path. Please try again."
+            onRetry={loadPath}
           />
+        )}
+
+        {!loading && !loadError && path?.milestones?.length ? (
+          <>
+            <Card>
+              <ProgressSummary summary={summary} />
+            </Card>
+
+            <Card padded={false} className="overflow-hidden">
+              <div className="h-[70vh]">
+                <ReactFlowProvider>
+                  <RoadmapFlow
+                    rfNodes={rfNodes}
+                    edges={rfEdges}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    currentKey={currentKeyRef.current}
+                    onMilestoneClick={toggleMilestone}
+                    onHoverNode={setHoveredNode}
+                  />
+                </ReactFlowProvider>
+              </div>
+            </Card>
+          </>
+        ) : (
+          !loading &&
+          !loadError && (
+            <EmptyState
+              icon={Map}
+              title="No roadmap yet"
+              description="Set up your profile to generate a personalized learning path."
+              action={
+                <Button onClick={() => navigate('/onboarding')}>Set up your profile</Button>
+              }
+            />
+          )
+        )}
+      </div>
+
+      {/* Detail sidebar */}
+      {selectedNode && (
+        <div
+          className="fixed inset-0 z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Step details"
+        >
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm lg:bg-transparent"
+            onClick={() => setSelectedNode(null)}
+            aria-hidden="true"
+          />
+          <div className="absolute right-0 top-0 h-full w-full max-w-sm overflow-y-auto border-l border-surface-700 bg-surface-900 p-6 shadow-2xl sm:max-w-md">
+            <div className="mb-4 flex items-start justify-between">
+              <div className="min-w-0">
+                {selectedNode.marker && (
+                  <span className="text-xs font-medium text-primary-400">{selectedNode.marker}</span>
+                )}
+                <h2 className="mt-1 text-xl font-bold text-white">{selectedNode.title}</h2>
+              </div>
+              <button
+                onClick={() => setSelectedNode(null)}
+                className="shrink-0 rounded-lg p-1.5 text-surface-400 transition-colors hover:text-surface-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+                aria-label="Close details"
+              >
+                <span aria-hidden="true" className="text-xl">×</span>
+              </button>
+            </div>
+
+            <div className="mb-4 flex items-center gap-3">
+              <StatusBadge status={selectedNode.status} />
+              <span className="text-surface-500" aria-hidden="true">·</span>
+              <span className="text-sm text-surface-400">{selectedNode.estimated_hours}h estimated</span>
+            </div>
+
+            <div className="space-y-3">
+              <Button variant="secondary" className="w-full" onClick={handleExplain}>
+                💡 Why was this recommended?
+              </Button>
+
+              {selectedNode.status === 'available' && (
+                <Button className="w-full" onClick={() => handleProgress('in_progress')}>
+                  🔄 Start learning
+                </Button>
+              )}
+
+              {selectedNode.status === 'in_progress' && (
+                <>
+                  <Button variant="primary" className="w-full" onClick={() => handleProgress('completed')}>
+                    ✅ Mark complete
+                  </Button>
+                  <Button variant="danger-soft" className="w-full" onClick={() => handleProgress('failed')}>
+                    ❌ Mark failed
+                  </Button>
+                </>
+              )}
+
+              {(selectedNode.status === 'available' || selectedNode.status === 'in_progress') && (
+                <Button variant="ghost" className="w-full" onClick={() => handleProgress('skipped')}>
+                  ⏭️ Skip
+                </Button>
+              )}
+            </div>
+
+            {showExplanation && (
+              <div className="mt-4 rounded-xl border border-surface-700 bg-surface-800 p-4">
+                <h4 className="mb-2 text-sm font-semibold text-primary-400">
+                  Why this was recommended
+                </h4>
+                {explanationLoading ? (
+                  <div className="flex gap-1 py-2" role="status">
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-surface-500" />
+                    <span
+                      className="h-2 w-2 animate-bounce rounded-full bg-surface-500"
+                      style={{ animationDelay: '150ms' }}
+                    />
+                    <span className="sr-only">Loading explanation…</span>
+                  </div>
+                ) : (
+                  <p className="text-sm leading-relaxed text-surface-300">{explanation}</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="text-sm text-surface-400 mt-1">{summary.progress}% complete</div>
-      </div>
-      <div>
-        <div className="text-xs uppercase tracking-wider text-surface-500 mb-1">Current Milestone</div>
-        <div className="text-white font-semibold">{summary.currentMilestone}</div>
-        <div className="text-xs text-surface-500 mt-1">Current step: {summary.current?.title || '—'}</div>
-      </div>
-      <div>
-        <div className="text-xs uppercase tracking-wider text-surface-500 mb-1">Next Up</div>
-        <div className="text-white font-semibold">{summary.next?.title || 'Final steps'}</div>
-        <div className="text-xs text-surface-500 mt-1">Estimated remaining: {Math.round(summary.remainingHours)}h</div>
-      </div>
-    </div>
+      )}
+    </AppShell>
   )
 }

@@ -1,81 +1,105 @@
-import React, { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { useAuth } from '../context/AuthContext'
+import { useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { LogIn } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
+import { AuthLayout } from '../components/shared/AuthLayout'
+import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
 
 const LoginPage = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
+  const toast = useToast()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  const validate = () => {
+    const next = {}
+    if (!email.trim()) next.email = 'Email is required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = 'Enter a valid email address'
+    if (!password) next.password = 'Password is required'
+    return next
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    const next = validate()
+    setErrors(next)
+    if (Object.keys(next).length > 0) return
+
+    setLoading(true)
     try {
-      setError('')
-      setLoading(true)
-      await login(email, password)
-      navigate('/dashboard')
+      await login(email.trim(), password)
+      const from = location.state?.from?.pathname || '/dashboard'
+      toast.success('Welcome back!')
+      navigate(from, { replace: true })
     } catch (err) {
-      setError('Failed to log in')
+      const detail = err?.response?.data?.detail
+      if (detail === 'Incorrect email or password') {
+        setErrors({ form: 'The email or password you entered is incorrect.' })
+      } else if (err?.response?.status === 401) {
+        setErrors({ form: 'The email or password you entered is incorrect.' })
+      } else if (err?.response?.status === 422) {
+        setErrors({ form: 'Please check your email and password.' })
+      } else {
+        setErrors({ form: 'Unable to log in. Please check your connection and try again.' })
+      }
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-surface-950 flex flex-col justify-center items-center p-4">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-surface-900 p-8 rounded-2xl border border-white/10 shadow-2xl"
-      >
-        <div className="flex items-center gap-3 mb-8">
-          <div className="p-3 bg-primary-500/20 rounded-xl">
-            <LogIn className="w-6 h-6 text-primary-400" />
-          </div>
-          <h2 className="text-2xl font-bold text-white">Welcome Back</h2>
+    <AuthLayout altTitle="Don't have an account?" altHref="/signup" altLink="Sign up">
+      <div className="mb-6 flex items-center gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-500/15">
+          <LogIn className="h-6 w-6 text-primary-400" aria-hidden="true" />
         </div>
-
-        {error && <div className="mb-4 p-3 bg-red-500/20 text-red-300 rounded-lg">{error}</div>}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-surface-300 mb-1">Email</label>
-            <input 
-              type="email" 
-              required 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-surface-950 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-primary-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-surface-300 mb-1">Password</label>
-            <input 
-              type="password" 
-              required 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-surface-950 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-primary-500"
-            />
-          </div>
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full bg-primary-600 hover:bg-primary-500 text-white font-medium p-3 rounded-lg mt-4 disabled:opacity-50"
-          >
-            {loading ? 'Logging in...' : 'Log In'}
-          </button>
-        </form>
-        <div className="mt-6 text-center text-surface-400">
-          Don't have an account? <Link to="/signup" className="text-primary-400 hover:text-primary-300">Sign Up</Link>
+        <div>
+          <h2 className="text-xl font-bold text-white">Welcome back</h2>
+          <p className="text-sm text-surface-400">Log in to continue your learning journey.</p>
         </div>
-      </motion.div>
-    </div>
+      </div>
+
+      {errors.form && (
+        <div
+          role="alert"
+          className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-300"
+        >
+          {errors.form}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+        <Input
+          type="email"
+          label="Email"
+          autoComplete="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          error={errors.email}
+          required
+        />
+        <Input
+          type="password"
+          label="Password"
+          autoComplete="current-password"
+          placeholder="••••••••"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          error={errors.password}
+          required
+        />
+        <Button type="submit" loading={loading} className="w-full">
+          {loading ? 'Logging in…' : 'Log in'}
+        </Button>
+      </form>
+    </AuthLayout>
   )
 }
 
