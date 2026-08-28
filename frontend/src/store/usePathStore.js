@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-const usePathStore = create((set, get) => ({
+const usePathStore = create((set) => ({
   path: null,
   nodes: [],
   adaptations: [],

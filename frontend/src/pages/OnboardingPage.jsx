@@ -1,8 +1,12 @@
-import { useState, useRef, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
 import useUserStore from '../store/useUserStore'
 import api from '../services/api'
+import { Logo } from '../components/shared/Logo'
+import { Button } from '../components/ui/Button'
+import { PathfinderAssistant } from '../components/shared/PathfinderAssistant'
+import { useToast } from '../context/ToastContext'
 
 const QUICK_SKILLS = [
   { id: 'python_basics', label: 'Python' },
@@ -20,24 +24,21 @@ const GOALS = [
 ]
 
 const STYLES = [
-  { id: 'project', label: 'Projects' },
-  { id: 'video', label: 'Videos' },
-  { id: 'text', label: 'Reading' },
-  { id: 'mixed', label: 'Mixed' },
+  { id: 'project', label: 'Project-First' },
+  { id: 'video', label: 'Visual / Video' },
+  { id: 'text', label: 'Documentation / Text' },
+  { id: 'mixed', label: 'Balanced Mix' },
 ]
+
+const selectionClass = (active) =>
+  active
+    ? 'border-primary-400 bg-primary-400/10 text-primary-400 font-semibold'
+    : 'border-surface-700 bg-surface-900 text-surface-300 hover:border-surface-600 hover:text-white'
 
 export default function OnboardingPage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const isDemo = searchParams.get('demo') === 'true'
-
-  const [mode, setMode] = useState(isDemo ? 'form' : null)
-  const [messages, setMessages] = useState([])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const chatEndRef = useRef(null)
-
-  const { setUserId, setProfile, profile } = useUserStore()
+  const toast = useToast()
+  const { setProfile } = useUserStore()
 
   const [form, setForm] = useState({
     goal: '',
@@ -47,61 +48,22 @@ export default function OnboardingPage() {
     preferred_learning_style: 'mixed',
     experience_level: 'beginner',
   })
+  const [formError, setFormError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [focusedField, setFocusedField] = useState('this screen')
 
-  useEffect(() => {
-    if (mode === 'chat') {
-      setMessages([{
-        role: 'assistant',
-        content: "Hi! I'm your AI learning advisor. Tell me about your learning goal and what you already know, and I'll create a personalized roadmap for you.",
-      }])
-    }
-  }, [mode])
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const handleSendMessage = async () => {
-    if (!input.trim() || loading) return
-
-    const userMsg = input.trim()
-    setInput('')
-    setMessages(prev => [...prev, { role: 'user', content: userMsg }])
-    setLoading(true)
-
-    try {
-      const userId = useUserStore.getState().userId
-
-
-      const res = await api.sendChatMessage(userMsg, messages.map(m => ({
-        role: m.role,
-        content: m.content,
-      })))
-
-      setMessages(prev => [...prev, { role: 'assistant', content: res.reply }])
-
-      if (res.extracted_profile) {
-        setProfile(res.extracted_profile)
-      }
-
-      if (res.profile_complete) {
-        setTimeout(() => navigate('/roadmap'), 2000)
-      }
-    } catch (err) {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'Sorry, something went wrong. Please try again or use the quick form.',
-      }])
-    } finally {
-      setLoading(false)
-    }
-  }
+  const onSectionFocus = (id) => () => setFocusedField(id)
 
   const handleFormSubmit = async () => {
+    if (!form.target_role) {
+      setFormError('Please select a target role to proceed.')
+      return
+    }
+    setFormError('')
     setLoading(true)
     try {
       await api.createProfile({
-        goal: GOALS.find(g => g.id === form.target_role)?.label || form.goal,
+        goal: GOALS.find((g) => g.id === form.target_role)?.label || form.goal,
         target_role: form.target_role,
         interests: [],
         experience_level: form.experience_level,
@@ -112,72 +74,62 @@ export default function OnboardingPage() {
 
       const profileRes = await api.getProfile()
       setProfile(profileRes)
-
+      toast.success('Profile synthesized! Generating learning graph…')
       navigate('/roadmap')
-    } catch (err) {
-      console.error('Profile creation failed:', err)
+    } catch {
+      setFormError('Failed to save technical profile. Please try again.')
+      toast.error('Failed to save profile.')
     } finally {
       setLoading(false)
     }
   }
 
-  if (!mode) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-lg w-full text-center"
+  return (
+    <div className="min-h-screen bg-surface-950 text-surface-100">
+      {/* Header */}
+      <header className="flex h-14 items-center justify-between border-b border-surface-800 px-4 sm:px-8">
+        <Logo to="/dashboard" />
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="flex items-center gap-1.5 font-mono text-xs text-surface-400 transition-colors hover:text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400"
         >
-          <h1 className="text-3xl font-bold text-white mb-3">How would you like to start?</h1>
-          <p className="text-surface-400 mb-8">Choose how you'd like to set up your learning profile.</p>
-          <div className="flex gap-4">
-            <button
-              onClick={() => setMode('chat')}
-              className="flex-1 p-6 rounded-2xl bg-surface-800 border border-surface-700 hover:border-primary-500 transition-all group"
-            >
-              <div className="text-3xl mb-3">💬</div>
-              <h3 className="text-lg font-semibold text-white mb-1">Chat with AI</h3>
-              <p className="text-sm text-surface-400">Natural conversation to build your profile</p>
-            </button>
-            <button
-              onClick={() => setMode('form')}
-              className="flex-1 p-6 rounded-2xl bg-surface-800 border border-surface-700 hover:border-primary-500 transition-all group"
-            >
-              <div className="text-3xl mb-3">📝</div>
-              <h3 className="text-lg font-semibold text-white mb-1">Quick Form</h3>
-              <p className="text-sm text-surface-400">Fill in your details directly</p>
-            </button>
-          </div>
-        </motion.div>
-      </div>
-    )
-  }
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>RETURN TO DASHBOARD</span>
+        </button>
+      </header>
 
-  if (mode === 'form') {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-6 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-xl w-full"
-        >
-          <h1 className="text-3xl font-bold text-white mb-2">Build Your Profile</h1>
-          <p className="text-surface-400 mb-8">Tell us about yourself so we can create your learning path.</p>
+      <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 py-12 sm:px-8">
+        <div className="w-full max-w-xl rounded-[8px] border border-surface-800 bg-surface-900/60 p-6 sm:p-8">
+          <div className="mb-6 border-b border-surface-800 pb-4">
+            <p className="font-mono text-[10px] font-medium uppercase tracking-widest text-primary-400">
+              &gt; PROFILE PARAMETERS
+            </p>
+            <h1 className="mt-1 text-xl font-semibold text-white">Setup your learning path</h1>
+            <p className="mt-1 text-xs text-surface-400">
+              Complete these parameters and Pathfinder will generate your personalized roadmap.
+            </p>
+          </div>
+
+          {formError && (
+            <div
+              role="alert"
+              className="mb-5 rounded-[6px] border border-red-500/30 bg-red-500/10 px-3.5 py-2 font-mono text-xs text-red-300"
+            >
+              {formError}
+            </div>
+          )}
 
           <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-surface-300 mb-2">Learning Goal</label>
-              <div className="grid grid-cols-3 gap-2">
-                {GOALS.map(g => (
+            <div data-field="Target role" onFocusCapture={onSectionFocus('Target role')} onMouseEnter={onSectionFocus('Target role')}>
+              <p className="mb-2 font-mono text-xs uppercase tracking-wider text-surface-300">
+                Target Role <span className="text-primary-400">*</span>
+              </p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {GOALS.map((g) => (
                   <button
                     key={g.id}
                     onClick={() => setForm({ ...form, target_role: g.id })}
-                    className={`p-3 rounded-xl text-sm font-medium transition-all ${
-                      form.target_role === g.id
-                        ? 'bg-primary-600 text-white'
-                        : 'bg-surface-800 text-surface-300 border border-surface-700 hover:border-surface-500'
-                    }`}
+                    className={`rounded-[6px] border p-3 text-xs font-medium transition-all ${selectionClass(form.target_role === g.id)}`}
                   >
                     {g.label}
                   </button>
@@ -185,63 +137,60 @@ export default function OnboardingPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-surface-300 mb-2">Current Skills</label>
+            <div data-field="Existing baseline skills" onFocusCapture={onSectionFocus('Existing baseline skills')} onMouseEnter={onSectionFocus('Existing baseline skills')}>
+              <p className="mb-2 font-mono text-xs uppercase tracking-wider text-surface-300">Existing Baseline Skills</p>
               <div className="flex flex-wrap gap-2">
-                {QUICK_SKILLS.map(s => (
-                  <button
-                    key={s.id}
-                    onClick={() => {
-                      const newSkills = { ...form.skills }
-                      if (newSkills[s.id]) {
-                        delete newSkills[s.id]
-                      } else {
-                        newSkills[s.id] = 0.5
-                      }
-                      setForm({ ...form, skills: newSkills })
-                    }}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      form.skills[s.id]
-                        ? 'bg-primary-600 text-white'
-                        : 'bg-surface-800 text-surface-300 border border-surface-700 hover:border-surface-500'
-                    }`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
+                {QUICK_SKILLS.map((s) => {
+                  const active = !!form.skills[s.id]
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        const newSkills = { ...form.skills }
+                        if (newSkills[s.id]) delete newSkills[s.id]
+                        else newSkills[s.id] = 0.5
+                        setForm({ ...form, skills: newSkills })
+                      }}
+                      className={`rounded-[6px] border px-3 py-1.5 font-mono text-xs transition-all ${selectionClass(active)}`}
+                      aria-pressed={active}
+                    >
+                      {s.label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-surface-300 mb-2">
-                Weekly Hours: {form.weekly_hours}h
-              </label>
+            <div data-field="Weekly commitment" onFocusCapture={onSectionFocus('Weekly commitment')} onMouseEnter={onSectionFocus('Weekly commitment')}>
+              <div className="mb-2 flex items-center justify-between font-mono text-xs">
+                <label htmlFor="weekly-hours" className="uppercase tracking-wider text-surface-300">
+                  Weekly Commitment
+                </label>
+                <span className="text-primary-400 font-bold">{form.weekly_hours} HOURS / WEEK</span>
+              </div>
               <input
+                id="weekly-hours"
                 type="range"
                 min="1"
                 max="40"
                 value={form.weekly_hours}
-                onChange={(e) => setForm({ ...form, weekly_hours: parseInt(e.target.value) })}
-                className="w-full accent-primary-500"
+                onChange={(e) => setForm({ ...form, weekly_hours: parseInt(e.target.value, 10) })}
+                className="w-full accent-primary-400"
               />
-              <div className="flex justify-between text-xs text-surface-500 mt-1">
+              <div className="flex justify-between font-mono text-[10px] text-surface-500">
                 <span>1h</span>
                 <span>40h</span>
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-surface-300 mb-2">Preferred Learning Style</label>
-              <div className="grid grid-cols-4 gap-2">
-                {STYLES.map(s => (
+            <div data-field="Preferred learning style" onFocusCapture={onSectionFocus('Preferred learning style')} onMouseEnter={onSectionFocus('Preferred learning style')}>
+              <p className="mb-2 font-mono text-xs uppercase tracking-wider text-surface-300">Preferred Learning Style</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {STYLES.map((s) => (
                   <button
                     key={s.id}
                     onClick={() => setForm({ ...form, preferred_learning_style: s.id })}
-                    className={`p-3 rounded-xl text-sm font-medium transition-all ${
-                      form.preferred_learning_style === s.id
-                        ? 'bg-primary-600 text-white'
-                        : 'bg-surface-800 text-surface-300 border border-surface-700 hover:border-surface-500'
-                    }`}
+                    className={`rounded-[6px] border p-2.5 text-xs transition-all ${selectionClass(form.preferred_learning_style === s.id)}`}
                   >
                     {s.label}
                   </button>
@@ -249,18 +198,14 @@ export default function OnboardingPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-surface-300 mb-2">Experience Level</label>
+            <div data-field="Experience level" onFocusCapture={onSectionFocus('Experience level')} onMouseEnter={onSectionFocus('Experience level')}>
+              <p className="mb-2 font-mono text-xs uppercase tracking-wider text-surface-300">Experience Level</p>
               <div className="grid grid-cols-3 gap-2">
-                {['beginner', 'intermediate', 'advanced'].map(l => (
+                {['beginner', 'intermediate', 'advanced'].map((l) => (
                   <button
                     key={l}
                     onClick={() => setForm({ ...form, experience_level: l })}
-                    className={`p-3 rounded-xl text-sm font-medium capitalize transition-all ${
-                      form.experience_level === l
-                        ? 'bg-primary-600 text-white'
-                        : 'bg-surface-800 text-surface-300 border border-surface-700 hover:border-surface-500'
-                    }`}
+                    className={`rounded-[6px] border p-2.5 font-mono text-xs uppercase transition-all ${selectionClass(form.experience_level === l)}`}
                   >
                     {l}
                   </button>
@@ -268,92 +213,19 @@ export default function OnboardingPage() {
               </div>
             </div>
 
-            <button
-              onClick={handleFormSubmit}
-              disabled={!form.target_role || loading}
-              className="w-full py-3.5 rounded-xl bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold transition-all"
-            >
-              {loading ? 'Creating Profile...' : 'Generate My Learning Path'}
-            </button>
-          </div>
-
-          <button
-            onClick={() => setMode(null)}
-            className="mt-4 text-sm text-surface-500 hover:text-surface-300 transition-colors"
-          >
-            ← Back to options
-          </button>
-        </motion.div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen flex flex-col max-w-2xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-white">AI Learning Advisor</h1>
-          <p className="text-sm text-surface-400">Tell me about your goals</p>
-        </div>
-        <button
-          onClick={() => setMode('form')}
-          className="text-sm text-primary-400 hover:text-primary-300 transition-colors"
-        >
-          Use Form Instead
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-        <AnimatePresence>
-          {messages.map((msg, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div className={`max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed ${
-                msg.role === 'user'
-                  ? 'bg-primary-600 text-white rounded-br-md'
-                  : 'bg-surface-800 text-surface-200 border border-surface-700 rounded-bl-md'
-              }`}>
-                {msg.content}
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-
-        {loading && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-            <div className="bg-surface-800 border border-surface-700 rounded-2xl rounded-bl-md p-4">
-              <div className="flex gap-1.5">
-                <div className="w-2 h-2 bg-surface-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 bg-surface-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 bg-surface-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-              </div>
+            <div className="flex flex-col gap-3 border-t border-surface-800 pt-5 sm:flex-row-reverse">
+              <Button onClick={handleFormSubmit} loading={loading} className="flex-1 font-mono text-xs">
+                COMPILE LEARNING GRAPH <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </Button>
+              <Button variant="ghost" onClick={() => navigate('/dashboard')} className="font-mono text-xs">
+                Cancel
+              </Button>
             </div>
-          </motion.div>
-        )}
-        <div ref={chatEndRef} />
-      </div>
+          </div>
+        </div>
+      </main>
 
-      <div className="flex gap-3">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-          placeholder="Describe your goal..."
-          className="flex-1 px-4 py-3 rounded-xl bg-surface-800 border border-surface-700 text-white placeholder-surface-500 focus:outline-none focus:border-primary-500 transition-colors text-sm"
-        />
-        <button
-          onClick={handleSendMessage}
-          disabled={!input.trim() || loading}
-          className="px-6 py-3 rounded-xl bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white font-medium transition-all"
-        >
-          Send
-        </button>
-      </div>
+      <PathfinderAssistant context={{ field: focusedField }} label="Ask Pathfinder AI" />
     </div>
   )
 }

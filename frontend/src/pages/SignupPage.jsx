@@ -1,93 +1,120 @@
-import React, { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { UserPlus } from 'lucide-react'
+import { AuthShell } from '../components/layout/AuthShell'
+import { Input } from '../components/ui/Input'
+import { Button } from '../components/ui/Button'
 
 const SignupPage = () => {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
   const { signup } = useAuth()
   const navigate = useNavigate()
 
+  const validate = () => {
+    const next = {}
+    if (!name.trim()) next.name = 'Name is required'
+    if (!email.trim()) next.email = 'Email is required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      next.email = 'Enter a valid email address'
+    if (!password) next.password = 'Password is required'
+    else if (password.length < 8)
+      next.password = 'Password must be at least 8 characters'
+    return next
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+    const next = validate()
+    setErrors(next)
+    if (Object.keys(next).length > 0) return
+
+    setLoading(true)
     try {
-      setError('')
-      setLoading(true)
-      await signup(name, email, password)
+      await signup(name.trim(), email.trim(), password)
       navigate('/onboarding')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to create an account')
+      const detail = err?.response?.data?.detail
+      if (detail === 'Email already registered') {
+        setErrors({ form: 'An account with this email already exists. Log in instead.' })
+      } else if (err?.response?.status === 422) {
+        setErrors({ form: 'Please verify your credentials and format.' })
+      } else {
+        setErrors({ form: 'Unable to initialize account. Verify connection and retry.' })
+      }
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-surface-950 flex flex-col justify-center items-center p-4">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-surface-900 p-8 rounded-2xl border border-white/10 shadow-2xl"
-      >
-        <div className="flex items-center gap-3 mb-8">
-          <div className="p-3 bg-primary-500/20 rounded-xl">
-            <UserPlus className="w-6 h-6 text-primary-400" />
-          </div>
-          <h2 className="text-2xl font-bold text-white">Create Account</h2>
+    <AuthShell
+      tag="AUTH / REGISTRATION"
+      title="INITIALIZE ACCOUNT"
+      subtitle="Configure your engineering profile and learning trajectory."
+    >
+      {errors.form && (
+        <div
+          role="alert"
+          className="mb-4 rounded-[6px] border border-red-500/30 bg-red-500/10 px-3.5 py-2 font-mono text-xs text-red-300"
+        >
+          {errors.form}
         </div>
+      )}
 
-        {error && <div className="mb-4 p-3 bg-red-500/20 text-red-300 rounded-lg">{error}</div>}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-surface-300 mb-1">Name</label>
-            <input 
-              type="text" 
-              required 
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full bg-surface-950 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-primary-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-surface-300 mb-1">Email</label>
-            <input 
-              type="email" 
-              required 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-surface-950 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-primary-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-surface-300 mb-1">Password</label>
-            <input 
-              type="password" 
-              required 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-surface-950 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-primary-500"
-            />
-          </div>
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full bg-primary-600 hover:bg-primary-500 text-white font-medium p-3 rounded-lg mt-4 disabled:opacity-50"
-          >
-            {loading ? 'Creating...' : 'Sign Up'}
-          </button>
-        </form>
-        <div className="mt-6 text-center text-surface-400">
-          Already have an account? <Link to="/login" className="text-primary-400 hover:text-primary-300">Log In</Link>
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+        <Input
+          label="FULL NAME"
+          autoComplete="name"
+          placeholder="Jane Doe"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          error={errors.name}
+          required
+        />
+        <Input
+          type="email"
+          label="WORK OR PERSONAL EMAIL"
+          autoComplete="email"
+          placeholder="engineer@company.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          error={errors.email}
+          required
+        />
+        <Input
+          type="password"
+          label="PASSWORD"
+          autoComplete="new-password"
+          placeholder="Minimum 8 characters"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          error={errors.password}
+          required
+          hint="Minimum 8 alphanumeric characters."
+        />
+        <div className="pt-2">
+          <Button type="submit" size="lg" loading={loading} className="w-full font-mono text-xs tracking-wider">
+            {loading ? 'INITIALIZING…' : 'CREATE ACCOUNT →'}
+          </Button>
         </div>
-      </motion.div>
-    </div>
+      </form>
+
+      <div className="mt-6 border-t border-surface-800 pt-4 text-center font-mono text-xs text-surface-400">
+        <span>Already have an account? </span>
+        <Link
+          to="/login"
+          className="text-primary-400 font-semibold transition-colors hover:text-primary-300"
+        >
+          LOG IN →
+        </Link>
+      </div>
+    </AuthShell>
   )
 }
 
 export default SignupPage
+

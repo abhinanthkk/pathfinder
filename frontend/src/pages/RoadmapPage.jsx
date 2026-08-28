@@ -1,139 +1,200 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
-  ReactFlow,
-  ReactFlowProvider,
-  Background,
-  Controls,
-  useNodesState,
-  useEdgesState,
-  useReactFlow,
-  Handle,
-  Position,
+  ReactFlow, ReactFlowProvider, Background, Controls,
+  useNodesState, useEdgesState, useReactFlow, Handle, Position,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import PropTypes from 'prop-types'
+import { Map, RefreshCw, Target, Clock, Check, X, Play, SkipForward, Lightbulb, ChevronRight, ChevronDown } from 'lucide-react'
+import { AppShell } from '../components/layout/AppShell'
+import { PageHeader } from '../components/shared/PageHeader'
+import { Button } from '../components/ui/Button'
+import { StatusBadge } from '../components/shared/StatusBadge'
+import { EmptyState } from '../components/ui/EmptyState'
+import { ErrorState } from '../components/ui/ErrorState'
+import { Spinner } from '../components/ui/Spinner'
 import useUserStore from '../store/useUserStore'
 import usePathStore from '../store/usePathStore'
-import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import api from '../services/api'
 import {
-  NODE_W,
-  NODE_H,
-  MIL_W,
+  NODE_W, NODE_H, MIL_W,
   buildVisualRoadmap,
   computeSummary,
 } from '../utils/roadmapLayout'
 
-const STATUS_META = {
-  completed: { color: '#10b981', border: '#10b981', bg: '#022c22', text: '#6ee7b7', icon: '✓', label: 'Completed' },
-  in_progress: { color: '#f59e0b', border: '#f59e0b', bg: '#1e1b0b', text: '#fcd34d', icon: '●', label: 'You are here' },
-  available: { color: '#6366f1', border: '#6366f1', bg: '#0f0f2a', text: '#c7d2fe', icon: '→', label: 'Recommended next' },
-  locked: { color: '#64748b', border: '#334155', bg: '#0f172a', text: '#94a3b8', icon: '🔒', label: 'Future step' },
-  skipped: { color: '#6b7280', border: '#4b5563', bg: '#1f2937', text: '#9ca3af', icon: '⏭', label: 'Skipped' },
-  failed: { color: '#ef4444', border: '#ef4444', bg: '#2a0f0f', text: '#fca5a5', icon: '✕', label: 'Revisit' },
+const GOAL_DATA_SHAPE = {
+  label: PropTypes.string,
+}
+const MILESTONE_DATA_SHAPE = {
+  number: PropTypes.number,
+  title: PropTypes.string,
+  hours: PropTypes.number,
+  weeks: PropTypes.number,
+  nodeCount: PropTypes.number,
+  isCurrent: PropTypes.bool,
+  isCompleted: PropTypes.bool,
+  isCollapsed: PropTypes.bool,
+  onToggle: PropTypes.func,
+}
+const RESOURCE_DATA_SHAPE = {
+  title: PropTypes.string,
+  status: PropTypes.string,
+  estimated_hours: PropTypes.number,
+  isCurrent: PropTypes.bool,
+  isNext: PropTypes.bool,
+  dimmed: PropTypes.bool,
+  onNodeClick: PropTypes.func,
 }
 
 function GoalNode({ data }) {
   return (
     <div
-      className="rounded-2xl px-6 py-4 text-center border-2"
-      style={{
-        width: NODE_W,
-        background: 'linear-gradient(135deg, #312e8155, #0f172a)',
-        borderColor: '#4f46e5',
-        boxShadow: '0 8px 40px -8px rgba(79,70,229,0.5)',
-      }}
+      className="rounded-[6px] border border-primary-400/70 bg-surface-900 px-6 py-3.5 text-center shadow-panel"
+      style={{ width: NODE_W }}
     >
-      <Handle type="source" position={Position.Bottom} style={{ background: '#6366f1', border: 'none' }} />
-      <div className="text-2xl mb-1">🎯</div>
-      <div className="text-base font-bold text-white leading-snug">{data.label}</div>
+      <Handle type="source" position={Position.Bottom} style={{ background: '#FACC15', border: 'none', width: 6, height: 6 }} />
+      <div className="flex items-center justify-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-widest text-primary-400">
+        <Target className="h-3 w-3" aria-hidden="true" />
+        <span>TARGET OBJECTIVE</span>
+      </div>
+      <div className="mt-1 text-sm font-semibold text-white">{data.label}</div>
     </div>
   )
 }
+GoalNode.propTypes = { data: GOAL_DATA_SHAPE }
 
 function MilestoneNode({ data }) {
+  const isCurrent = !!data.isCurrent
+  const isCompleted = !!data.isCompleted
+  const formattedNum = String(data.number).padStart(2, '0')
+
   return (
     <div
-      className="rounded-xl flex items-center gap-4 px-5 py-3 cursor-pointer border-2 select-none"
-      style={{
-        width: MIL_W,
-        background: data.isCurrent
-          ? 'linear-gradient(135deg, #312e81, #1e1b4b)'
-          : data.isCompleted
-            ? 'linear-gradient(135deg, #064e3b, #022c22)'
-            : '#111c33',
-        borderColor: data.isCurrent ? '#818cf8' : data.isCompleted ? '#10b981' : '#334155',
-        boxShadow: data.isCurrent ? '0 6px 30px -6px rgba(129,140,248,0.4)' : 'none',
-      }}
+      className={`flex cursor-pointer select-none items-center justify-between gap-4 rounded-[6px] border px-4 py-3 transition-all ${
+        isCurrent
+          ? 'border-primary-400 bg-surface-900 shadow-highlight'
+          : isCompleted
+            ? 'border-emerald-500/40 bg-surface-950/90'
+            : 'border-surface-700 bg-surface-950/80 hover:border-surface-600'
+      }`}
+      style={{ width: MIL_W }}
       onClick={data.onToggle}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          data.onToggle?.()
+        }
+      }}
       title={data.isCollapsed ? 'Expand milestone' : 'Collapse milestone'}
+      aria-expanded={!data.isCollapsed}
     >
-      <Handle type="target" position={Position.Top} style={{ background: '#6366f1', border: 'none' }} />
-      <div className="text-2xl">{data.icon}</div>
-      <div className="flex-1 min-w-0">
-        <div className="text-[11px] font-semibold tracking-widest uppercase"
-          style={{ color: data.isCurrent ? '#a5b4fc' : data.isCompleted ? '#6ee7b7' : '#64748b' }}>
-          Milestone {data.number}{data.isCurrent ? ' • You are here' : ''}{data.isCompleted ? ' • Complete' : ''}
+      <Handle type="target" position={Position.Top} style={{ background: isCurrent ? '#FACC15' : '#3f3f46', border: 'none', width: 6, height: 6 }} />
+      
+      <div className="flex items-center gap-3.5 min-w-0">
+        <span
+          className={`flex h-7 w-8 shrink-0 items-center justify-center rounded-[4px] border font-mono text-xs font-bold ${
+            isCurrent
+              ? 'border-primary-400/80 bg-primary-400/15 text-primary-400'
+              : isCompleted
+                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
+                : 'border-surface-700 bg-surface-850 text-surface-400'
+          }`}
+        >
+          {formattedNum}
+        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[9px] font-medium uppercase tracking-widest text-surface-500">
+              MILESTONE {formattedNum}
+            </span>
+            {isCurrent && (
+              <span className="rounded-[3px] border border-primary-400/40 bg-primary-400/10 px-1 py-0.2 font-mono text-[9px] font-semibold text-primary-400 uppercase">
+                ACTIVE
+              </span>
+            )}
+            {isCompleted && (
+              <span className="rounded-[3px] border border-emerald-500/30 bg-emerald-500/10 px-1 py-0.2 font-mono text-[9px] font-semibold text-emerald-400 uppercase">
+                DONE
+              </span>
+            )}
+          </div>
+          <div className="truncate text-sm font-semibold text-white">
+            {data.title}
+          </div>
         </div>
-        <div className="text-lg font-bold text-white leading-tight truncate">{data.title}</div>
       </div>
-      <div className="text-right shrink-0">
-        <div className="text-sm font-semibold" style={{ color: data.isCurrent ? '#c7d2fe' : '#94a3b8' }}>
-          {data.nodeCount} {data.nodeCount === 1 ? 'step' : 'steps'}
+
+      <div className="flex items-center gap-3 shrink-0">
+        <div className="text-right font-mono text-[11px] text-surface-400">
+          <div>{data.nodeCount} {data.nodeCount === 1 ? 'STEP' : 'STEPS'}</div>
+          <div className="text-[10px] text-surface-500">
+            {data.hours ? `~${data.hours}H` : ''}{data.weeks ? ` · ${data.weeks}W` : ''}
+          </div>
         </div>
-        <div className="text-xs" style={{ color: '#64748b' }}>
-          ~{data.hours}h {data.weeks ? `· ${data.weeks}w` : ''}
+        <div className="text-surface-500">
+          {data.isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </div>
       </div>
-      <div className="text-surface-400 shrink-0 text-sm">
-        {data.isCollapsed ? '▸' : '▾'}
-      </div>
-      <Handle type="source" position={Position.Bottom} style={{ background: '#6366f1', border: 'none' }} />
+
+      <Handle type="source" position={Position.Bottom} style={{ background: isCurrent ? '#FACC15' : '#3f3f46', border: 'none', width: 6, height: 6 }} />
     </div>
   )
 }
+MilestoneNode.propTypes = { data: MILESTONE_DATA_SHAPE }
 
 function ResourceNode({ data }) {
-  const meta = STATUS_META[data.status] || STATUS_META.locked
   const isCurrent = !!data.isCurrent
-  const isNext = !!data.isNext
+  const isCompleted = data.status === 'completed'
 
   return (
     <div
-      className="rounded-2xl px-5 py-4 border-2 transition-all"
+      className={`cursor-pointer rounded-[6px] border px-4 py-3 transition-all ${
+        isCurrent
+          ? 'border-primary-400 bg-surface-900 shadow-highlight'
+          : isCompleted
+            ? 'border-emerald-500/30 bg-surface-950/90 hover:border-emerald-500/50'
+            : 'border-surface-700 bg-surface-950/80 hover:border-surface-500 hover:bg-surface-900/60'
+      }`}
       style={{
         width: NODE_W,
-        background: isCurrent ? '#141021' : meta.bg,
-        borderColor: isCurrent ? STATUS_META.in_progress.border : isNext ? STATUS_META.available.border : meta.border,
-        boxShadow: isCurrent ? '0 8px 36px -8px rgba(245,158,11,0.45)' : isNext ? '0 4px 24px -8px rgba(99,102,241,0.35)' : 'none',
-        opacity: data.dimmed === undefined ? 1 : data.dimmed ? 0.3 : 1,
-        cursor: 'pointer',
+        opacity: data.dimmed === undefined ? 1 : data.dimmed ? 0.35 : 1,
       }}
       onClick={() => data.onNodeClick?.(data)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          data.onNodeClick?.(data)
+        }
+      }}
     >
-      <Handle type="target" position={Position.Top} style={{ background: meta.border, border: 'none' }} />
-      <div className="flex items-center justify-between mb-2">
-        <span
-          className="text-[10px] font-semibold uppercase tracking-wider rounded-full px-2 py-0.5"
-          style={{ background: `${meta.color}22`, color: meta.text }}
-        >
-          {meta.icon} {isCurrent ? 'You are here' : isNext ? 'Next step' : meta.label}
-        </span>
-        <span className="text-xs font-medium" style={{ color: isCurrent ? '#fcd34d' : '#64748b' }}>
-          ⏱ {data.estimated_hours || 0}h
+      <Handle type="target" position={Position.Top} style={{ background: isCurrent ? '#FACC15' : '#3f3f46', border: 'none', width: 6, height: 6 }} />
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <StatusBadge status={data.status} />
+        <span className="inline-flex items-center gap-1 font-mono text-[11px] text-surface-500">
+          <Clock className="h-3 w-3" aria-hidden="true" />
+          {data.estimated_hours || 0}h
         </span>
       </div>
-      <div className="text-[15px] font-bold text-white leading-snug">{data.title}</div>
+      <div className="text-xs font-semibold text-white line-clamp-2">
+        {data.title}
+      </div>
       {isCurrent && (
-        <div className="mt-2 text-xs font-semibold" style={{ color: '#fbbf24' }}>
-          ● Continue learning from here
+        <div className="mt-1.5 flex items-center gap-1 font-mono text-[10px] font-semibold text-primary-400">
+          <span className="h-1 w-1 rounded-full bg-primary-400" />
+          &gt; ACTIVE STEP
         </div>
       )}
-      <Handle type="source" position={Position.Bottom} style={{ background: meta.border, border: 'none' }} />
+      <Handle type="source" position={Position.Bottom} style={{ background: isCurrent ? '#FACC15' : '#3f3f46', border: 'none', width: 6, height: 6 }} />
     </div>
   )
 }
+ResourceNode.propTypes = { data: RESOURCE_DATA_SHAPE }
 
 const nodeTypes = { goal: GoalNode, milestone: MilestoneNode, resource: ResourceNode }
 
@@ -151,7 +212,7 @@ function RoadmapFlow({ rfNodes, edges, onNodesChange, onEdgesChange, currentKey,
         try {
           setCenter(cx, cy, { zoom: 0.85, duration: 400 })
         } catch {
-          /* viewport not ready */
+          // viewport not ready
         }
       }
       setFitted(true)
@@ -173,44 +234,138 @@ function RoadmapFlow({ rfNodes, edges, onNodesChange, onEdgesChange, currentKey,
       maxZoom={1.6}
       proOptions={{ hideAttribution: true }}
     >
-      <Background color="#1e293b" gap={24} size={1} />
-      <Controls className="!bg-surface-800 !border-surface-700 !rounded-xl" position="bottom-left" />
+      <Background color="#1e1e24" gap={20} size={1} />
+      <Controls position="bottom-left" className="!rounded-[4px] !border !border-surface-700 !bg-surface-900" />
     </ReactFlow>
   )
+}
+RoadmapFlow.propTypes = {
+  rfNodes: PropTypes.array,
+  edges: PropTypes.array,
+  onNodesChange: PropTypes.func,
+  onEdgesChange: PropTypes.func,
+  currentKey: PropTypes.string,
+  onMilestoneClick: PropTypes.func,
+  onHoverNode: PropTypes.func,
+}
+
+function ProgressSummary({ summary }) {
+  const bar = `${Math.min(100, Math.max(0, summary.progress))}%`
+  return (
+    <div className="grid grid-cols-1 gap-px overflow-hidden rounded-[6px] border border-surface-800 bg-surface-800 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="bg-surface-950 p-4">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-surface-500">&gt; TARGET GOAL</div>
+        <div className="mt-1 text-sm font-semibold text-white truncate">
+          {summary.goal}
+        </div>
+        <div className="mt-1 font-mono text-[11px] text-surface-400">
+          ~{Math.round(summary.totalHours)}H TOTAL ALLOCATION
+        </div>
+      </div>
+      
+      <div className="bg-surface-950 p-4">
+        <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-surface-500">
+          <span>&gt; COMPLETION PROGRESS</span>
+          <span className="text-primary-400 font-bold">{summary.progress}%</span>
+        </div>
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-[2px] bg-surface-900 border border-surface-800">
+          <div
+            className="h-full bg-primary-400 transition-all duration-300"
+            style={{ width: bar }}
+          />
+        </div>
+        <div className="mt-1.5 font-mono text-[10px] text-surface-400">
+          {summary.completedSteps} OF {summary.totalSteps} STEPS COMPLETED
+        </div>
+      </div>
+
+      <div className="bg-surface-950 p-4">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-surface-500">&gt; CURRENT MILESTONE</div>
+        <div className="mt-1 text-sm font-semibold text-white truncate">
+          {summary.currentMilestone}
+        </div>
+        <div className="mt-1 font-mono text-[10px] text-primary-400/90 truncate">
+          STEP: {summary.current?.title || 'READY'}
+        </div>
+      </div>
+
+      <div className="bg-surface-950 p-4">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-surface-500">&gt; ESTIMATED COMPLETION</div>
+        <div className="mt-1 font-mono text-sm font-semibold text-surface-200">
+          {summary.estimatedCompletion}
+        </div>
+        <div className="mt-1 font-mono text-[10px] text-surface-500">
+          ~{Math.round(summary.remainingHours)}H REMAINING
+        </div>
+      </div>
+    </div>
+  )
+}
+ProgressSummary.propTypes = {
+  summary: PropTypes.shape({
+    progress: PropTypes.number,
+    goal: PropTypes.string,
+    completedSteps: PropTypes.number,
+    totalSteps: PropTypes.number,
+    currentMilestone: PropTypes.string,
+    current: PropTypes.shape({ title: PropTypes.string }),
+    totalHours: PropTypes.number,
+    remainingHours: PropTypes.number,
+    estimatedCompletion: PropTypes.string,
+  }),
 }
 
 export default function RoadmapPage() {
   const navigate = useNavigate()
-  const { userId, profile } = useUserStore()
-  const { logout } = useAuth()
-  const { path, setPath, setLoading, loading } = usePathStore()
+  const { profile } = useUserStore()
+  const toast = useToast()
+  const { path, setPath, loading, setLoading } = usePathStore()
   const [selectedNode, setSelectedNode] = useState(null)
   const [showExplanation, setShowExplanation] = useState(false)
   const [explanation, setExplanation] = useState('')
   const [explanationLoading, setExplanationLoading] = useState(false)
   const [collapsedMilestones, setCollapsedMilestones] = useState([])
   const [hoveredNode, setHoveredNode] = useState(null)
+  const [loadError, setLoadError] = useState(false)
+  const currentKeyRef = useRef(null)
 
   const [rfNodes, setNodes, onNodesChange] = useNodesState([])
   const [rfEdges, setEdges, onEdgesChange] = useEdgesState([])
-  const currentKeyRef = useRef(null)
+
+  const loadPath = useCallback(async () => {
+    setLoading(true)
+    setLoadError(false)
+    try {
+      let existingPath
+      try {
+        existingPath = await api.getPath()
+      } catch {
+        existingPath = await api.generatePath()
+      }
+      setPath(existingPath)
+    } catch {
+      setLoadError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [setLoading, setPath])
 
   useEffect(() => {
-    if (!userId) {
-      navigate('/onboarding')
-    }
-  }, [userId, navigate])
-
-  useEffect(() => {
-    if (userId) {
-      loadPath()
-    }
-  }, [userId])
+    loadPath()
+  }, [loadPath])
 
   useEffect(() => {
     if (path?.milestones?.length) {
-      const handleResourceClick = (node) => setSelectedNode({ ...node, marker: node.marker || '' })
-      const { nodes, edges, currentKey } = buildVisualRoadmap(path, profile, collapsedMilestones, handleResourceClick)
+      const handleResourceClick = (node) => {
+        setShowExplanation(false)
+        setSelectedNode({ ...node, marker: node.marker || '' })
+      }
+      const { nodes, edges, currentKey } = buildVisualRoadmap(
+        path,
+        profile,
+        collapsedMilestones,
+        handleResourceClick
+      )
       setNodes(nodes)
       setEdges(edges)
       currentKeyRef.current = currentKey
@@ -238,23 +393,6 @@ export default function RoadmapPage() {
     )
   }, [hoveredNode, rfEdges, setNodes])
 
-  const loadPath = async () => {
-    setLoading(true)
-    try {
-      let existingPath
-      try {
-        existingPath = await api.getPath()
-      } catch {
-        existingPath = await api.generatePath()
-      }
-      setPath(existingPath)
-    } catch (e) {
-      console.error('Failed to load path:', e)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const toggleMilestone = (node) => {
     const num = node.data?.number
     if (!num) return
@@ -271,7 +409,7 @@ export default function RoadmapPage() {
       const res = await api.explainRecommendation(selectedNode.resource_id)
       setExplanation(res.explanation)
     } catch {
-      setExplanation(`"${selectedNode.title}" was recommended to help you progress toward your goal.`)
+      setExplanation(`“${selectedNode.title}” was recommended to verify core competency for your career roadmap.`)
     } finally {
       setExplanationLoading(false)
     }
@@ -284,219 +422,194 @@ export default function RoadmapPage() {
       if (res.adaptation) {
         usePathStore.getState().addAdaptation(res.adaptation)
       }
+      const statusLabel = status.replace('_', ' ').toUpperCase()
+      toast.success(`Marked as ${statusLabel}`)
       setSelectedNode(null)
       loadPath()
-    } catch (e) {
-      console.error('Failed to update progress:', e)
+    } catch {
+      toast.error('Unable to update step progress. Please retry.')
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-surface-400">Generating your learning path...</p>
-        </div>
-      </div>
-    )
-  }
-
-  const pct = summary.progress
-
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      <header className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-surface-800">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/')} className="text-surface-400 hover:text-white transition-colors">
-            ← Pathfinder
-          </button>
-          <h1 className="text-lg font-semibold text-white">Your Learning Roadmap</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          {path && (
-            <span className="text-sm text-surface-400">
-              {path.total_estimated_hours}h · {path.estimated_completion_date}
-            </span>
-          )}
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="px-4 py-2 rounded-lg bg-surface-800 text-surface-300 hover:bg-surface-700 text-sm transition-colors"
-          >
-            Dashboard
-          </button>
-          <button
-            onClick={() => {
-              logout()
-              navigate('/login')
-            }}
-            className="px-4 py-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 text-sm transition-colors"
-          >
-            Log Out
-          </button>
-        </div>
-      </header>
+    <AppShell>
+      <PageHeader
+        tag={`ROADMAP / ${(profile?.target_role || profile?.goal || 'ENGINEERING').toUpperCase()}`}
+        icon={Map}
+        title="DIRECTED LEARNING GRAPH"
+        description="Topologically sequenced learning trajectory with milestone gates, time estimates, and prerequisite verification."
+        actions={
+          <Button variant="secondary" size="sm" onClick={loadPath} disabled={loading} className="font-mono text-xs">
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+            RE-CALCULATE GRAPH
+          </Button>
+        }
+      />
 
-      <div className="flex-shrink-0 border-b border-surface-800 bg-surface-900/60 px-6 py-4">
-        <ProgressSummary summary={summary} />
-      </div>
-
-      <div className="flex-1 relative min-h-0">
-        {rfNodes.length > 0 ? (
-          <ReactFlowProvider>
-            <RoadmapFlow
-              rfNodes={rfNodes}
-              edges={rfEdges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              currentKey={currentKeyRef.current}
-              onMilestoneClick={toggleMilestone}
-              onHoverNode={setHoveredNode}
-            />
-          </ReactFlowProvider>
-        ) : (
-          <div className="min-h-[60vh] flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-surface-400 mb-4">No learning path generated yet</p>
-              <button
-                onClick={loadPath}
-                className="px-6 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-medium transition-all"
-              >
-                Generate Path
-              </button>
-            </div>
+      <div className="mt-8 space-y-6">
+        {loading && !path && (
+          <div className="flex items-center justify-center rounded-[8px] border border-surface-800 bg-surface-900/50 py-24">
+            <Spinner label="COMPILING LEARNING GRAPH…" />
           </div>
         )}
 
-        <AnimatePresence>
-          {selectedNode && (
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="absolute right-0 top-0 h-full w-96 bg-surface-900 border-l border-surface-700 p-6 overflow-y-auto z-20"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <span className="text-xs font-medium text-primary-400">{selectedNode.marker || 'Learning step'}</span>
-                  <h2 className="text-xl font-bold text-white mt-1">{selectedNode.title}</h2>
-                </div>
-                <button
-                  onClick={() => setSelectedNode(null)}
-                  className="text-surface-400 hover:text-white transition-colors text-xl"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-sm font-medium capitalize" style={{ color: STATUS_META[selectedNode.status]?.color || '#94a3b8' }}>
-                  {selectedNode.status.replace('_', ' ')}
-                </span>
-                <span className="text-surface-500 text-sm">·</span>
-                <span className="text-sm text-surface-400">{selectedNode.estimated_hours}h estimated</span>
-              </div>
-
-              <div className="space-y-3 mb-6">
-                <button
-                  onClick={handleExplain}
-                  className="w-full py-2.5 rounded-xl bg-surface-800 border border-surface-700 hover:border-primary-500 text-surface-200 text-sm font-medium transition-all"
-                >
-                  💡 Why was this recommended?
-                </button>
-
-                {selectedNode.status === 'available' && (
-                  <button
-                    onClick={() => handleProgress('in_progress')}
-                    className="w-full py-2.5 rounded-xl bg-amber-600/20 border border-amber-500/30 text-amber-400 text-sm font-medium transition-all hover:bg-amber-600/30"
-                  >
-                    🔄 Start Learning
-                  </button>
-                )}
-
-                {selectedNode.status === 'in_progress' && (
-                  <>
-                    <button
-                      onClick={() => handleProgress('completed')}
-                      className="w-full py-2.5 rounded-xl bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 text-sm font-medium transition-all hover:bg-emerald-600/30"
-                    >
-                      ✅ Mark Complete
-                    </button>
-                    <button
-                      onClick={() => handleProgress('failed')}
-                      className="w-full py-2.5 rounded-xl bg-red-600/20 border border-red-500/30 text-red-400 text-sm font-medium transition-all hover:bg-red-600/30"
-                    >
-                      ❌ Mark Failed
-                    </button>
-                  </>
-                )}
-
-                {(selectedNode.status === 'available' || selectedNode.status === 'in_progress') && (
-                  <button
-                    onClick={() => handleProgress('skipped')}
-                    className="w-full py-2.5 rounded-xl bg-surface-800 border border-surface-700 text-surface-400 text-sm font-medium transition-all hover:bg-surface-700"
-                  >
-                    ⏭️ Skip
-                  </button>
-                )}
-              </div>
-
-              {showExplanation && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="bg-surface-800 rounded-xl p-4 border border-surface-700"
-                >
-                  <h4 className="text-sm font-semibold text-primary-400 mb-2">Why this was recommended</h4>
-                  {explanationLoading ? (
-                    <div className="flex gap-1 py-2">
-                      <div className="w-2 h-2 bg-surface-500 rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-surface-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    </div>
-                  ) : (
-                    <p className="text-sm text-surface-300 leading-relaxed">{explanation}</p>
-                  )}
-                </motion.div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  )
-}
-
-function ProgressSummary({ summary }) {
-  const bar = `${Math.min(100, Math.max(0, summary.progress))}%`
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div>
-        <div className="text-xs uppercase tracking-wider text-surface-500 mb-1">Your Goal</div>
-        <div className="text-white font-semibold">{summary.goal}</div>
-      </div>
-      <div>
-        <div className="text-xs uppercase tracking-wider text-surface-500 mb-1">
-          Overall Progress · {summary.completedSteps}/{summary.totalSteps} steps
-        </div>
-        <div className="h-2.5 w-full rounded-full bg-surface-800 overflow-hidden mt-2">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-primary-500 to-emerald-500 transition-all"
-            style={{ width: bar }}
+        {loadError && !loading && (
+          <ErrorState
+            title="Failed to Load Learning Graph"
+            description="Unable to construct topological roadmap. Verify network connection and retry."
+            onRetry={loadPath}
           />
+        )}
+
+        {!loading && !loadError && path?.milestones?.length ? (
+          <>
+            {/* Top Telemetry Summary Panel */}
+            <ProgressSummary summary={summary} />
+
+            {/* Interactive Graph Surface */}
+            <div className="overflow-hidden rounded-[8px] border border-surface-700 bg-surface-950 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-surface-800 bg-surface-900/80 px-4 py-2 font-mono text-[11px] text-surface-400">
+                <span className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-primary-400" />
+                  <span>VIEWPORT: DIRECTED ACYCLIC GRAPH</span>
+                </span>
+                <span>DRAG TO PAN · SCROLL TO ZOOM</span>
+              </div>
+              <div className="h-[70vh]">
+                <ReactFlowProvider>
+                  <RoadmapFlow
+                    rfNodes={rfNodes}
+                    edges={rfEdges}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    currentKey={currentKeyRef.current}
+                    onMilestoneClick={toggleMilestone}
+                    onHoverNode={setHoveredNode}
+                  />
+                </ReactFlowProvider>
+              </div>
+            </div>
+          </>
+        ) : (
+          !loading &&
+          !loadError && (
+            <EmptyState
+              icon={Map}
+              title="No Learning Graph Configured"
+              description="Calibrate your technical profile to synthesize a personalized roadmap."
+              action={
+                <Button onClick={() => navigate('/onboarding')} className="font-mono text-xs">
+                  CALIBRATE PROFILE
+                </Button>
+              }
+            />
+          )
+        )}
+      </div>
+
+      {/* Contextual Node Inspector Drawer */}
+      {selectedNode && (
+        <div
+          className="fixed inset-0 z-50 flex justify-end"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Node Inspector"
+        >
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-[2px]"
+            onClick={() => setSelectedNode(null)}
+            aria-hidden="true"
+          />
+          <div className="relative z-10 flex h-full w-full max-w-md flex-col border-l border-surface-700 bg-surface-950 p-6 shadow-2xl overflow-y-auto">
+            <div className="mb-5 flex items-start justify-between border-b border-surface-800 pb-4">
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] font-medium uppercase tracking-widest text-primary-400">
+                  &gt; NODE INSPECTOR
+                </p>
+                {selectedNode.marker && (
+                  <p className="mt-1 font-mono text-xs text-surface-500 uppercase">
+                    {selectedNode.marker}
+                  </p>
+                )}
+                <h2 className="mt-1 text-lg font-semibold text-white leading-snug">
+                  {selectedNode.title}
+                </h2>
+              </div>
+              <button
+                onClick={() => setSelectedNode(null)}
+                className="shrink-0 rounded-[6px] p-1.5 text-surface-400 transition-colors hover:bg-surface-850 hover:text-white"
+                aria-label="Close inspector"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Status & Hours Metadata */}
+            <div className="mb-6 flex items-center justify-between rounded-[6px] border border-surface-800 bg-surface-900/60 p-3">
+              <StatusBadge status={selectedNode.status} />
+              <span className="font-mono text-xs text-surface-300">
+                EST. {selectedNode.estimated_hours} HOURS
+              </span>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2.5">
+              <Button variant="secondary" className="w-full font-mono text-xs" onClick={handleExplain}>
+                <Lightbulb className="h-3.5 w-3.5 text-primary-400" aria-hidden="true" />
+                WHY WAS THIS RECOMMENDED?
+              </Button>
+
+              {selectedNode.status === 'available' && (
+                <Button className="w-full font-mono text-xs" onClick={() => handleProgress('in_progress')}>
+                  <Play className="h-3.5 w-3.5" aria-hidden="true" />
+                  START LEARNING STEP
+                </Button>
+              )}
+
+              {selectedNode.status === 'in_progress' && (
+                <>
+                  <Button variant="primary" className="w-full font-mono text-xs" onClick={() => handleProgress('completed')}>
+                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                    MARK COMPLETED
+                  </Button>
+                  <Button variant="danger-soft" className="w-full font-mono text-xs" onClick={() => handleProgress('failed')}>
+                    <X className="h-3.5 w-3.5" aria-hidden="true" />
+                    FLAG FOR REVISIT
+                  </Button>
+                </>
+              )}
+
+              {(selectedNode.status === 'available' || selectedNode.status === 'in_progress') && (
+                <Button variant="ghost" className="w-full font-mono text-xs" onClick={() => handleProgress('skipped')}>
+                  <SkipForward className="h-3.5 w-3.5" aria-hidden="true" />
+                  SKIP THIS STEP
+                </Button>
+              )}
+            </div>
+
+            {/* AI Explanation Stream */}
+            {showExplanation && (
+              <div className="mt-6 rounded-[6px] border border-surface-700 bg-surface-900/80 p-4">
+                <div className="mb-2 flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-primary-400">
+                  <Lightbulb className="h-3 w-3" />
+                  <span>&gt; ADVISORY RATIONALE</span>
+                </div>
+                {explanationLoading ? (
+                  <div className="flex items-center gap-2 py-2 text-xs text-surface-400 font-mono" role="status">
+                    <span className="h-1.5 w-1.5 animate-ping rounded-full bg-primary-400" />
+                    <span>Querying LLM reasoning engine…</span>
+                  </div>
+                ) : (
+                  <p className="text-xs leading-relaxed text-surface-300 whitespace-pre-wrap">
+                    {explanation}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="text-sm text-surface-400 mt-1">{summary.progress}% complete</div>
-      </div>
-      <div>
-        <div className="text-xs uppercase tracking-wider text-surface-500 mb-1">Current Milestone</div>
-        <div className="text-white font-semibold">{summary.currentMilestone}</div>
-        <div className="text-xs text-surface-500 mt-1">Current step: {summary.current?.title || '—'}</div>
-      </div>
-      <div>
-        <div className="text-xs uppercase tracking-wider text-surface-500 mb-1">Next Up</div>
-        <div className="text-white font-semibold">{summary.next?.title || 'Final steps'}</div>
-        <div className="text-xs text-surface-500 mt-1">Estimated remaining: {Math.round(summary.remainingHours)}h</div>
-      </div>
-    </div>
+      )}
+    </AppShell>
   )
 }
+

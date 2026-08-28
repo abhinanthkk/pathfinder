@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import PropTypes from 'prop-types'
 import { getMe, login as apiLogin, signup as apiSignup } from '../services/api'
 import useUserStore from '../store/useUserStore'
 
@@ -15,45 +17,65 @@ export const AuthProvider = ({ children }) => {
         try {
           const userData = await getMe()
           setUser(userData)
-        } catch (err) {
+          useUserStore.getState().setUserId(userData.id)
+        } catch {
+          // Invalid or expired token: clear local session
           localStorage.removeItem('token')
+          localStorage.removeItem('user')
           useUserStore.getState().setUserId(null)
-          useUserStore.getState().setProfile(null)
+        } finally {
+          setLoading(false)
         }
+      } else {
+        setLoading(false)
       }
-      setLoading(false)
     }
     initAuth()
   }, [])
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const res = await apiLogin({ email, password })
     localStorage.setItem('token', res.access_token)
+    localStorage.removeItem('user')
     const userData = await getMe()
     setUser(userData)
     useUserStore.getState().setUserId(userData.id)
-  }
+    return userData
+  }, [])
 
-  const signup = async (name, email, password) => {
+  const signup = useCallback(async (name, email, password) => {
     const res = await apiSignup({ name, email, password })
     localStorage.setItem('token', res.access_token)
+    localStorage.removeItem('user')
     const userData = await getMe()
     setUser(userData)
     useUserStore.getState().setUserId(userData.id)
-  }
+    return userData
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('token')
+    localStorage.removeItem('user')
     setUser(null)
     useUserStore.getState().setUserId(null)
     useUserStore.getState().setProfile(null)
-  }
+  }, [])
 
   return (
     <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   )
 }
 
-export const useAuth = () => useContext(AuthContext)
+AuthProvider.propTypes = {
+  children: PropTypes.node,
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext)
+  if (ctx === null) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return ctx
+}

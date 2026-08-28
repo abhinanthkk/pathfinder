@@ -18,7 +18,7 @@ def _load_prompts() -> dict:
     global _prompts
     if _prompts is None:
         path = CONFIG_DIR / "prompts.yaml"
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         _prompts = data.get("prompts", data)
     return _prompts
