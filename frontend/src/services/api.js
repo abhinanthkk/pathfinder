@@ -17,7 +17,7 @@ api.interceptors.response.use(
   (res) => res.data,
   (err) => {
     console.error('API Error:', err.response?.data || err.message)
-    if (err.response?.status === 401) {
+    if (err.response?.status === 401 && err.config?.headers?.Authorization) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/'

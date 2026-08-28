@@ -13,7 +13,7 @@ const useUserStore = create(
 
       setProfile: (profile) => set({
         profile,
-        skills: profile?.user_skills || {},
+        skills: profile?.user_skills || profile?.skills || {},
       }),
 
       updateSkill: (skillId, confidence) => set((state) => ({
