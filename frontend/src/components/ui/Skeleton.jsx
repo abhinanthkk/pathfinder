@@ -7,7 +7,7 @@ Skeleton.propTypes = {
 export function Skeleton({ className = '' }) {
   return (
     <div
-      className={`animate-pulse rounded-lg bg-surface-800 ${className}`}
+      className={`animate-pulse rounded-[4px] bg-surface-850 ${className}`}
       aria-hidden="true"
     />
   )
@@ -19,10 +19,11 @@ SkeletonCard.propTypes = {
 
 export function SkeletonCard({ className = '' }) {
   return (
-    <div className={`rounded-2xl border border-surface-800 bg-surface-900 p-5 ${className}`}>
-      <Skeleton className="mb-3 h-4 w-1/3" />
-      <Skeleton className="mb-2 h-8 w-2/3" />
-      <Skeleton className="h-4 w-1/2" />
+    <div className={`rounded-[8px] border border-surface-800 bg-surface-900/60 p-5 ${className}`}>
+      <Skeleton className="mb-3 h-3.5 w-1/3" />
+      <Skeleton className="mb-2 h-7 w-2/3" />
+      <Skeleton className="h-3.5 w-1/2" />
     </div>
   )
 }
+

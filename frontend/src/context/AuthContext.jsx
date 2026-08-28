@@ -6,10 +6,6 @@ import useUserStore from '../store/useUserStore'
 
 const AuthContext = createContext(null)
 
-AuthProvider.propTypes = {
-  children: PropTypes.node,
-}
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -70,6 +66,10 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   )
+}
+
+AuthProvider.propTypes = {
+  children: PropTypes.node,
 }
 
 export function useAuth() {

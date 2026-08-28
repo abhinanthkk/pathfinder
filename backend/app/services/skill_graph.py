@@ -24,19 +24,19 @@ class SkillGraph:
 
     def _load_skills(self):
         path = CONFIG_DIR / "skills.yaml"
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         self.skills = data.get("skills", {})
 
     def _load_goals(self):
         path = CONFIG_DIR / "goals.yaml"
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         self.goals = data.get("goals", {})
 
     def _load_resources(self):
         path = CONFIG_DIR / "courses.yaml"
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         for r in data.get("resources", []):
             self.resources[r["id"]] = r

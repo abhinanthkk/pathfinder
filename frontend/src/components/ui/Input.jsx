@@ -2,11 +2,11 @@ import { forwardRef, useId } from 'react'
 import PropTypes from 'prop-types'
 
 const baseFieldClasses =
-  'w-full rounded-lg border border-surface-700 bg-surface-950 px-3 text-sm text-surface-100 placeholder:text-surface-600 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:cursor-not-allowed disabled:opacity-60'
+  'w-full rounded-[6px] border border-surface-700 bg-surface-950/90 px-3 text-sm text-surface-100 placeholder:text-surface-600 transition-colors focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-50'
 
 const sizeClasses = {
-  md: 'h-10',
-  lg: 'h-12',
+  md: 'h-9 text-sm',
+  lg: 'h-11 text-sm',
 }
 
 export const Input = forwardRef(
@@ -21,10 +21,10 @@ export const Input = forwardRef(
     return (
       <div className="w-full">
         {label && (
-          <label htmlFor={inputId} className="mb-1.5 block text-sm font-medium text-surface-300">
+          <label htmlFor={inputId} className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-surface-400">
             {label}
             {props.required && (
-              <span className="ml-0.5 text-red-400" aria-hidden="true">
+              <span className="ml-1 text-primary-400" aria-hidden="true">
                 *
               </span>
             )}
@@ -33,18 +33,18 @@ export const Input = forwardRef(
         <input
           ref={ref}
           id={inputId}
-          className={`${baseFieldClasses} ${sizeClasses[size]} ${error ? 'border-red-500/60 focus:ring-red-500' : ''} ${className}`}
+          className={`${baseFieldClasses} ${sizeClasses[size]} ${error ? 'border-red-500/80 focus:border-red-500 focus:ring-red-500' : ''} ${className}`}
           aria-invalid={!!error}
           aria-describedby={describedBy}
           {...props}
         />
         {hint && !error && (
-          <p id={`${inputId}-hint`} className="mt-1.5 text-xs text-surface-500">
+          <p id={`${inputId}-hint`} className="mt-1.5 text-xs text-surface-500 font-mono">
             {hint}
           </p>
         )}
         {error && (
-          <p id={`${inputId}-error`} className="mt-1.5 text-xs text-red-400" role="alert">
+          <p id={`${inputId}-error`} className="mt-1.5 text-xs text-red-400 font-mono" role="alert">
             {error}
           </p>
         )}
@@ -64,3 +64,4 @@ Input.propTypes = {
   required: PropTypes.bool,
   className: PropTypes.string,
 }
+

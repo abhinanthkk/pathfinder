@@ -1,31 +1,30 @@
-export const NODE_W = 300
-export const NODE_H = 104
-export const V_GAP = 50
+export const NODE_W = 320
+export const NODE_H = 100
+export const V_GAP = 44
 export const MIL_W = 560
-export const MIL_H = 78
-export const MIL_GAP = 96
-export const GOAL_H = 96
-export const GOAL_GAP = 60
+export const MIL_H = 74
+export const MIL_GAP = 88
+export const GOAL_H = 88
+export const GOAL_GAP = 54
 
-// Horizontal offset so a wider milestone node shares the same vertical center column as resource nodes.
+// Horizontal offset so wider milestone node shares the same vertical center column as resource nodes.
 export const MIL_X = -((MIL_W - NODE_W) / 2)
-
-const MILESTONE_ICONS = ['🌀', '🧱', '⚙️', '🔗', '🎓', '🚀', '💎']
 
 function goalDisplayName(goal, targetRole) {
   const g = (goal || '').trim()
   if (g) return g
-  const role = (targetRole || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-  if (role) return `Become a ${role}`
-  return 'Your Learning Journey'
+  const role = (targetRole || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  if (role) return `${role}`
+  return 'ENGINEERING PATH'
 }
 
 export function computeSummary(path, profile) {
   const milestones = (path?.milestones || []).filter((m) => m && Array.isArray(m.nodes))
   const flat = []
   for (const m of milestones) {
+    const mTitle = m.title || `Milestone ${m.number}`
     for (const n of m.nodes || []) {
-      flat.push({ ...n, milestoneNumber: m.number, milestoneTitle: m.title })
+      flat.push({ ...n, milestoneNumber: m.number, milestoneTitle: mTitle })
     }
   }
 
@@ -55,10 +54,21 @@ export function computeSummary(path, profile) {
     .filter((n) => n.status !== 'completed' && n.status !== 'skipped')
     .reduce((s, n) => s + (Number(n.estimated_hours) || 0), 0)
 
-  const currentMilestone =
-    current?.milestoneTitle ||
-    (milestones[0] ? milestones[0].title : '')
-  const currentMilestoneNumber = current?.milestoneNumber || (milestones[0] ? milestones[0].number : 1)
+  const totalHours = flat.reduce((s, n) => s + (Number(n.estimated_hours) || 0), 0)
+
+  const weeklyHours = Number(profile?.weekly_hours) || 5
+  const weeksRemaining = remainingHours > 0 ? Math.ceil(remainingHours / Math.max(1, weeklyHours)) : 0
+  const estDate = new Date()
+  estDate.setDate(estDate.getDate() + weeksRemaining * 7)
+  const estimatedCompletion =
+    weeksRemaining > 0
+      ? estDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : 'COMPLETED'
+
+  // Human readable current milestone title
+  const currentMilestoneObj = milestones.find((m) => m.number === current?.milestoneNumber) || milestones[0]
+  const currentMilestone = currentMilestoneObj?.title || current?.milestoneTitle || 'INITIALIZING'
+  const currentMilestoneNumber = current?.milestoneNumber || currentMilestoneObj?.number || 1
 
   return {
     goal: goalDisplayName(profile?.goal, profile?.target_role),
@@ -66,6 +76,8 @@ export function computeSummary(path, profile) {
     completedSteps: completed,
     progress,
     remainingHours,
+    totalHours,
+    estimatedCompletion,
     current,
     next,
     currentMilestone,
@@ -89,22 +101,21 @@ export function buildVisualRoadmap(path, profile, collapsedMilestones, onResourc
   const summary = computeSummary(path, profile)
   const collapsed = new Set(collapsedMilestones || [])
 
-  // --- Flatten all steps (milestone order preserved; nodes already topologically ordered) ---
   const steps = []
   let stepCounter = 0
   for (const m of milestones) {
+    const mTitle = m.title || `Milestone ${m.number}`
     for (const n of m.nodes || []) {
       steps.push({
         ...n,
         key: `node-${n.resource_id}-${m.number}-${stepCounter}`,
         mNumber: m.number,
-        marker: m.title,
+        marker: mTitle,
       })
       stepCounter += 1
     }
   }
 
-  // --- Determine current & next step indices ---
   const inProgressIdx = steps.findIndex((s) => s.status === 'in_progress')
   const activeIdx = inProgressIdx >= 0 ? inProgressIdx : steps.findIndex((s) => s.status === 'available' || s.status === 'locked')
   const validIdx = activeIdx >= 0 ? activeIdx : (steps.length ? 0 : -1)
@@ -130,14 +141,13 @@ export function buildVisualRoadmap(path, profile, collapsedMilestones, onResourc
 
     const mId = `milestone-${m.number}`
     const isCollapsed = collapsed.has(m.number)
-    const icon = MILESTONE_ICONS[(m.number - 1) % MILESTONE_ICONS.length]
+    const mTitle = m.title || `Milestone ${m.number}`
 
     nodes.push(
       createMilestoneNode({
         id: mId,
         number: m.number,
-        title: m.title,
-        icon,
+        title: mTitle,
         hours: m.estimated_hours || 0,
         weeks: m.estimated_weeks || 0,
         nodeCount: mNodes.length,
@@ -148,8 +158,8 @@ export function buildVisualRoadmap(path, profile, collapsedMilestones, onResourc
         collapsedCount: mNodes.length,
       })
     )
-    edges.push(connector(lastId, mId, '#1e293b', false))
-    y += MIL_H + 26
+    edges.push(connector(lastId, mId, '#27272a', false))
+    y += MIL_H + 22
     lastId = mId
 
     if (isCollapsed) {
@@ -162,7 +172,7 @@ export function buildVisualRoadmap(path, profile, collapsedMilestones, onResourc
       const isCurrent = s.key === currentKey
       const isNext = !isCurrent && currentKey === null && isFirstOpen && si === 0
       nodes.push(createResourceNode({ id: s.key, n: s, y, isCurrent, isNext, onResourceClick }))
-      edges.push(connector(lastId, s.key, isCurrent ? '#6366f1' : '#1e293b', isCurrent))
+      edges.push(connector(lastId, s.key, isCurrent ? '#FACC15' : '#27272a', isCurrent))
       y += NODE_H + V_GAP
       lastId = s.key
     }
@@ -175,8 +185,7 @@ export function buildVisualRoadmap(path, profile, collapsedMilestones, onResourc
       createMilestoneNode({
         id: 'milestone-none',
         number: 1,
-        title: 'No roadmap yet',
-        icon: '📭',
+        title: 'Roadmap Graph Initializing',
         hours: 0,
         weeks: 0,
         nodeCount: 0,
@@ -199,8 +208,8 @@ function connector(source, target, color, animated) {
     target,
     type: 'smoothstep',
     animated,
-    style: { stroke: color, strokeWidth: animated ? 3 : 2 },
-    markerEnd: { type: 'arrowclosed', color, width: 18, height: 18 },
+    style: { stroke: color, strokeWidth: animated ? 2.5 : 1.5 },
+    markerEnd: { type: 'arrowclosed', color, width: 14, height: 14 },
   }
 }
 
@@ -215,7 +224,7 @@ function createGoalNode(id, label, y) {
 }
 
 function createMilestoneNode({
-  id, number, title, icon, hours, weeks, nodeCount, y,
+  id, number, title, hours, weeks, nodeCount, y,
   isCurrent, isCompleted, isCollapsed, collapsedCount,
 }) {
   return {
@@ -225,7 +234,6 @@ function createMilestoneNode({
     data: {
       number,
       title,
-      icon,
       hours: hours || 0,
       weeks: weeks || 0,
       nodeCount,
@@ -255,3 +263,4 @@ function createResourceNode({ id, n, y, isCurrent, isNext, onResourceClick }) {
     draggable: false,
   }
 }
+

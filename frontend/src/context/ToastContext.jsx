@@ -9,21 +9,21 @@ const ToastContext = createContext(null)
 const TOAST_STYLES = {
   success: {
     icon: CheckCircle2,
-    ring: 'border-emerald-500/40',
+    ring: 'border-emerald-500/40 bg-surface-900/95 text-emerald-400',
     iconColor: 'text-emerald-400',
-    label: 'Success',
+    label: 'SUCCESS',
   },
   error: {
     icon: AlertCircle,
-    ring: 'border-red-500/40',
+    ring: 'border-red-500/40 bg-surface-900/95 text-red-400',
     iconColor: 'text-red-400',
-    label: 'Error',
+    label: 'ERROR',
   },
   info: {
     icon: Info,
-    ring: 'border-primary-500/40',
+    ring: 'border-primary-400/40 bg-surface-900/95 text-primary-400',
     iconColor: 'text-primary-400',
-    label: 'Info',
+    label: 'SYSTEM INFO',
   },
 }
 
@@ -77,7 +77,7 @@ export function ToastProvider({ children }) {
       <div
         aria-live="polite"
         aria-atomic="false"
-        className="fixed bottom-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-3 px-4 sm:px-0"
+        className="fixed bottom-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-2 px-4 sm:px-0"
       >
         {toasts.map((t) => {
           const style = TOAST_STYLES[t.type] || TOAST_STYLES.info
@@ -86,22 +86,22 @@ export function ToastProvider({ children }) {
             <div
               key={t.id}
               role="status"
-              className={`pointer-events-auto flex items-start gap-3 rounded-xl border bg-surface-900/95 p-4 shadow-2xl backdrop-blur ${style.ring}`}
+              className={`pointer-events-auto flex items-start gap-3 rounded-[6px] border p-3.5 shadow-2xl backdrop-blur-md ${style.ring}`}
             >
-              <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${style.iconColor}`} aria-hidden="true" />
+              <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${style.iconColor}`} aria-hidden="true" />
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-surface-400">
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-wider text-surface-400">
                   {style.label}
                 </p>
-                <p className="mt-0.5 text-sm text-surface-100">{t.message}</p>
+                <p className="mt-0.5 text-xs text-surface-100 leading-snug">{t.message}</p>
               </div>
               <button
                 type="button"
                 onClick={() => dismiss(t.id)}
-                className="shrink-0 rounded-md p-1 text-surface-500 transition-colors hover:text-surface-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+                className="shrink-0 rounded-[4px] p-1 text-surface-500 transition-colors hover:text-surface-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400"
                 aria-label="Dismiss notification"
               >
-                <X className="h-4 w-4" aria-hidden="true" />
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             </div>
           )
@@ -118,3 +118,4 @@ export function useToast() {
   }
   return ctx
 }
+

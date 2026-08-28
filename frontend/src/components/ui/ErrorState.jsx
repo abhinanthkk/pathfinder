@@ -13,26 +13,27 @@ export function ErrorState({ title = 'Something went wrong', description, onRetr
   return (
     <div
       role="alert"
-      className={`flex flex-col items-center justify-center gap-3 rounded-2xl border border-red-500/20 bg-red-500/5 px-6 py-12 text-center ${className}`}
+      className={`flex flex-col items-center justify-center gap-3 rounded-[8px] border border-red-500/30 bg-red-500/5 px-6 py-10 text-center ${className}`}
     >
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/10">
-        <AlertTriangle className="h-7 w-7 text-red-400" aria-hidden="true" />
+      <div className="flex h-10 w-10 items-center justify-center rounded-[6px] border border-red-500/30 bg-red-500/10">
+        <AlertTriangle className="h-5 w-5 text-red-400" aria-hidden="true" />
       </div>
       <div>
-        <h3 className="text-base font-semibold text-surface-100">{title}</h3>
-        {description && <p className="mx-auto mt-1 max-w-sm text-sm text-surface-400">{description}</p>}
+        <h3 className="text-sm font-semibold text-surface-100">{title}</h3>
+        {description && <p className="mx-auto mt-1 max-w-sm text-xs text-surface-400 leading-relaxed">{description}</p>}
       </div>
       {onRetry && (
         <Button
           variant="secondary"
           size="sm"
           onClick={onRetry}
-          className="mt-1"
+          className="mt-2"
         >
-          <RefreshCw className="h-4 w-4" aria-hidden="true" />
+          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
           Try again
         </Button>
       )}
     </div>
   )
 }
+

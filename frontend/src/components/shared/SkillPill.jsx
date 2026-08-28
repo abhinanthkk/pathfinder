@@ -9,7 +9,7 @@ SkillPill.propTypes = {
 export function SkillPill({ id, className = '' }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full bg-primary-500/10 px-2.5 py-0.5 text-xs font-medium text-primary-300 ${className}`}
+      className={`inline-flex items-center rounded-[4px] border border-surface-700 bg-surface-850 px-2.5 py-1 text-xs font-medium text-surface-200 transition-colors hover:border-surface-600 ${className}`}
     >
       {skillLabel(id)}
     </span>
@@ -27,15 +27,16 @@ export function SkillPillList({ skills = [], limit = 6, className = '' }) {
   const extra = skills.length - shown.length
   return (
     <div className={`flex flex-wrap gap-1.5 ${className}`}>
-      {shown.length === 0 && <span className="text-xs text-surface-500">No skills listed</span>}
+      {shown.length === 0 && <span className="text-xs text-surface-500 font-mono">No skills recorded</span>}
       {shown.map((s) => (
         <SkillPill key={s} id={s} />
       ))}
       {extra > 0 && (
-        <span className="inline-flex items-center rounded-full bg-surface-800 px-2.5 py-0.5 text-xs font-medium text-surface-400">
+        <span className="inline-flex items-center rounded-[4px] border border-surface-800 bg-surface-900 px-2 py-0.5 font-mono text-[11px] font-medium text-surface-400">
           +{extra} more
         </span>
       )}
     </div>
   )
 }
+

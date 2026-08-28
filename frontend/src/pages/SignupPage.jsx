@@ -1,11 +1,9 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { UserPlus } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { useToast } from '../context/ToastContext'
-import { AuthLayout } from '../components/shared/AuthLayout'
-import { Button } from '../components/ui/Button'
+import { AuthShell } from '../components/layout/AuthShell'
 import { Input } from '../components/ui/Input'
+import { Button } from '../components/ui/Button'
 
 const SignupPage = () => {
   const [name, setName] = useState('')
@@ -14,7 +12,6 @@ const SignupPage = () => {
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
   const { signup } = useAuth()
-  const toast = useToast()
   const navigate = useNavigate()
 
   const validate = () => {
@@ -24,7 +21,8 @@ const SignupPage = () => {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       next.email = 'Enter a valid email address'
     if (!password) next.password = 'Password is required'
-    else if (password.length < 8) next.password = 'Password must be at least 8 characters'
+    else if (password.length < 8)
+      next.password = 'Password must be at least 8 characters'
     return next
   }
 
@@ -37,16 +35,15 @@ const SignupPage = () => {
     setLoading(true)
     try {
       await signup(name.trim(), email.trim(), password)
-      toast.success('Account created! Let’s set up your profile.')
       navigate('/onboarding')
     } catch (err) {
       const detail = err?.response?.data?.detail
       if (detail === 'Email already registered') {
-        setErrors({ form: 'An account with this email already exists. Try logging in instead.' })
+        setErrors({ form: 'An account with this email already exists. Log in instead.' })
       } else if (err?.response?.status === 422) {
-        setErrors({ form: 'Please enter a valid email address.' })
+        setErrors({ form: 'Please verify your credentials and format.' })
       } else {
-        setErrors({ form: 'Unable to create your account. Please try again.' })
+        setErrors({ form: 'Unable to initialize account. Verify connection and retry.' })
       }
     } finally {
       setLoading(false)
@@ -54,21 +51,15 @@ const SignupPage = () => {
   }
 
   return (
-    <AuthLayout altTitle="Already have an account?" altHref="/login" altLink="Log in">
-      <div className="mb-6 flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-500/15">
-          <UserPlus className="h-6 w-6 text-primary-400" aria-hidden="true" />
-        </div>
-        <div>
-          <h2 className="text-xl font-bold text-white">Create your account</h2>
-          <p className="text-sm text-surface-400">Start building your personalized learning path.</p>
-        </div>
-      </div>
-
+    <AuthShell
+      tag="AUTH / REGISTRATION"
+      title="INITIALIZE ACCOUNT"
+      subtitle="Configure your engineering profile and learning trajectory."
+    >
       {errors.form && (
         <div
           role="alert"
-          className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-300"
+          className="mb-4 rounded-[6px] border border-red-500/30 bg-red-500/10 px-3.5 py-2 font-mono text-xs text-red-300"
         >
           {errors.form}
         </div>
@@ -76,7 +67,7 @@ const SignupPage = () => {
 
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <Input
-          label="Name"
+          label="FULL NAME"
           autoComplete="name"
           placeholder="Jane Doe"
           value={name}
@@ -86,9 +77,9 @@ const SignupPage = () => {
         />
         <Input
           type="email"
-          label="Email"
+          label="WORK OR PERSONAL EMAIL"
           autoComplete="email"
-          placeholder="you@example.com"
+          placeholder="engineer@company.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           error={errors.email}
@@ -96,21 +87,34 @@ const SignupPage = () => {
         />
         <Input
           type="password"
-          label="Password"
+          label="PASSWORD"
           autoComplete="new-password"
-          placeholder="At least 8 characters"
+          placeholder="Minimum 8 characters"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           error={errors.password}
           required
-          hint="Use at least 8 characters."
+          hint="Minimum 8 alphanumeric characters."
         />
-        <Button type="submit" loading={loading} className="w-full">
-          {loading ? 'Creating account…' : 'Create account'}
-        </Button>
+        <div className="pt-2">
+          <Button type="submit" size="lg" loading={loading} className="w-full font-mono text-xs tracking-wider">
+            {loading ? 'INITIALIZING…' : 'CREATE ACCOUNT →'}
+          </Button>
+        </div>
       </form>
-    </AuthLayout>
+
+      <div className="mt-6 border-t border-surface-800 pt-4 text-center font-mono text-xs text-surface-400">
+        <span>Already have an account? </span>
+        <Link
+          to="/login"
+          className="text-primary-400 font-semibold transition-colors hover:text-primary-300"
+        >
+          LOG IN →
+        </Link>
+      </div>
+    </AuthShell>
   )
 }
 
 export default SignupPage
+

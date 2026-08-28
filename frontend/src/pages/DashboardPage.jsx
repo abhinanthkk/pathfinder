@@ -2,37 +2,22 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell,
+  ResponsiveContainer,
 } from 'recharts'
-import PropTypes from 'prop-types'
-import { LayoutDashboard, Map, ArrowRight, Sparkles } from 'lucide-react'
+import { LayoutDashboard, Map, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react'
 import { AppShell } from '../components/layout/AppShell'
 import { PageHeader } from '../components/shared/PageHeader'
-import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { SkeletonCard } from '../components/ui/Skeleton'
 import { ErrorState } from '../components/ui/ErrorState'
 import { EmptyState } from '../components/ui/EmptyState'
 import { skillLabel } from '../utils/labels'
 import api from '../services/api'
-
-StatCard.propTypes = {
-  label: PropTypes.string,
-  value: PropTypes.node,
-  color: PropTypes.string,
-}
-
-function StatCard({ label, value, color = 'text-surface-100' }) {
-  return (
-    <Card className="flex flex-col gap-1">
-      <p className="text-xs font-medium uppercase tracking-wide text-surface-500">{label}</p>
-      <p className={`text-2xl font-bold ${color}`}>{value}</p>
-    </Card>
-  )
-}
+import useUserStore from '../store/useUserStore'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
+  const { profile } = useUserStore()
   const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -44,7 +29,7 @@ export default function DashboardPage() {
       const data = await api.getDashboard()
       setDashboard(data)
     } catch {
-      setError('We couldn’t load your dashboard. Please try again.')
+      setError('Unable to load workspace metrics. Please check connection and retry.')
     } finally {
       setLoading(false)
     }
@@ -56,216 +41,254 @@ export default function DashboardPage() {
 
   const radarData = Object.entries(dashboard?.skills || {})
     .map(([id, conf]) => ({
-      skill: skillLabel(id).slice(0, 12),
+      skill: skillLabel(id).slice(0, 14),
       level: Math.round((conf || 0) * 100),
       fullMark: 100,
     }))
     .slice(0, 8)
 
-  const barData = Object.entries(dashboard?.skills || {})
-    .map(([id, conf]) => ({
-      name: skillLabel(id),
-      value: Math.round((conf || 0) * 100),
-    }))
-    .slice(0, 10)
-
   const hasSkills = Object.keys(dashboard?.skills || {}).length > 0
   const hasAdaptations = (dashboard?.recent_adaptations || []).length > 0
+
+  const goalName =
+    profile?.goal ||
+    (profile?.target_role ? profile.target_role.replace(/_/g, ' ').toUpperCase() : 'YOUR LEARNING PATH')
+
+  const progressPercent = Math.round((dashboard?.overall_progress || 0) * 100)
 
   return (
     <AppShell>
       <PageHeader
+        tag="PATHFINDER / OVERVIEW"
         icon={LayoutDashboard}
-        title="Dashboard"
-        description="Your learning progress at a glance."
+        title="WORKSPACE OVERVIEW"
+        description="Unified telemetry across your active learning graph, milestones, and skill acquisitions."
         actions={
-          <Button onClick={() => navigate('/roadmap')}>
-            <Map className="h-4 w-4" aria-hidden="true" />
-            View roadmap
+          <Button onClick={() => navigate('/roadmap')} className="font-mono text-xs">
+            <Map className="h-3.5 w-3.5" aria-hidden="true" />
+            OPEN ROADMAP
           </Button>
         }
       />
 
       <div className="mt-8 space-y-6">
         {loading && (
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[0, 1, 2, 3].map((i) => (
               <SkeletonCard key={i} className="h-28" />
             ))}
           </div>
         )}
 
-        {error && <ErrorState title="Couldn’t load dashboard" description={error} onRetry={loadDashboard} />}
+        {error && <ErrorState title="Telemetry Unavailable" description={error} onRetry={loadDashboard} />}
 
         {!loading && !error && dashboard && (
           <>
-            {/* Key metrics */}
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              <StatCard
-                label="Overall progress"
-                value={`${Math.round((dashboard.overall_progress || 0) * 100)}%`}
-                color="text-primary-400"
-              />
-              <StatCard
-                label="Current milestone"
-                value={dashboard.current_milestone || '—'}
-                color="text-amber-400"
-              />
-              <StatCard
-                label="Milestones done"
-                value={
-                  dashboard.total_milestones
-                    ? `${dashboard.milestones_completed}/${dashboard.total_milestones}`
-                    : '—'
-                }
-                color="text-emerald-400"
-              />
-              <StatCard
-                label="Est. completion"
-                value={dashboard.estimated_completion || '—'}
-                color="text-purple-400"
-              />
+            {/* Primary Workspace Overview Banner */}
+            <div className="overflow-hidden rounded-[8px] border border-surface-700 bg-surface-900/60 p-6 sm:p-8 shadow-panel">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[11px] font-medium uppercase tracking-widest text-primary-400">
+                      &gt; YOUR LEARNING PATH
+                    </span>
+                    <span className="rounded-[3px] border border-surface-700 bg-surface-850 px-1.5 py-0.2 font-mono text-[10px] text-surface-400">
+                      ACTIVE
+                    </span>
+                  </div>
+
+                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+                    {goalName}
+                  </h2>
+
+                  {/* Progress Metric Bar */}
+                  <div className="mt-6">
+                    <div className="flex items-baseline justify-between font-mono text-xs mb-2">
+                      <span className="text-surface-400 uppercase tracking-wider">&gt; OVERALL COMPLETION</span>
+                      <span className="text-primary-400 font-bold text-sm">{progressPercent}%</span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-[4px] bg-surface-950 border border-surface-800">
+                      <div
+                        className="h-full rounded-[3px] bg-primary-400 transition-all duration-500 ease-out"
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between font-mono text-[11px] text-surface-500">
+                      <span>
+                        {dashboard.milestones_completed || 0} / {dashboard.total_milestones || 0} MILESTONES COMPLETED
+                      </span>
+                      <span>VELOCITY: NOMINAL</span>
+                    </div>
+                  </div>
+
+                  {/* Key Metrics Grid with Thin Dividers */}
+                  <div className="mt-7 grid grid-cols-1 gap-px overflow-hidden rounded-[6px] border border-surface-800 bg-surface-800 sm:grid-cols-2">
+                    <div className="bg-surface-950/80 p-4">
+                      <p className="font-mono text-[10px] uppercase tracking-wider text-surface-500">
+                        &gt; CURRENT MILESTONE
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-white truncate">
+                        {dashboard.current_milestone || 'INITIALIZING'}
+                      </p>
+                    </div>
+                    <div className="bg-surface-950/80 p-4">
+                      <p className="font-mono text-[10px] uppercase tracking-wider text-surface-500">
+                        &gt; ESTIMATED COMPLETION
+                      </p>
+                      <p className="mt-1 font-mono text-sm font-semibold text-surface-200">
+                        {dashboard.estimated_completion || 'CALCULATING…'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Next Action Direct Action Panel */}
+                <div className="w-full lg:max-w-md lg:border-l lg:border-surface-800 lg:pl-8 flex flex-col justify-between">
+                  {dashboard.next_action ? (
+                    <div>
+                      <div className="flex items-center gap-1.5 font-mono text-[11px] font-medium uppercase tracking-wider text-primary-400">
+                        <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>RECOMMENDED NEXT ACTION</span>
+                      </div>
+                      <h3 className="mt-3 text-lg font-semibold leading-snug text-white">
+                        {dashboard.next_action.title}
+                      </h3>
+                      <p className="mt-2 text-xs leading-relaxed text-surface-400">
+                        {dashboard.next_action.reason}
+                      </p>
+                      <div className="mt-6 flex items-center gap-3">
+                        <Button
+                          size="md"
+                          onClick={() => navigate('/roadmap')}
+                          className="font-mono text-xs tracking-wider"
+                        >
+                          CONTINUE STEP
+                          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="md"
+                          onClick={() => navigate('/roadmap')}
+                          className="font-mono text-xs"
+                        >
+                          VIEW IN GRAPH
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-4">
+                      <EmptyState
+                        icon={Map}
+                        title="Roadmap Initialization Required"
+                        description="Complete profile calibration to generate your structured roadmap."
+                        action={
+                          <Button onClick={() => navigate('/onboarding')} className="font-mono text-xs">
+                            CALIBRATE PROFILE
+                          </Button>
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {/* Next action */}
-            {dashboard.next_action ? (
-              <Card
-                className="border-primary-500/30 bg-gradient-to-r from-primary-600/10 to-purple-600/10"
-              >
-                <p className="flex items-center gap-2 text-xs font-medium text-primary-400">
-                  <Sparkles className="h-4 w-4" aria-hidden="true" /> Next action
-                </p>
-                <h3 className="mt-2 text-lg font-bold text-white">{dashboard.next_action.title}</h3>
-                <p className="mt-1 text-sm text-surface-400">{dashboard.next_action.reason}</p>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="mt-4"
-                  onClick={() => navigate('/roadmap')}
-                >
-                  Go to roadmap <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </Card>
-            ) : (
-              <EmptyState
-                icon={Map}
-                title="No tasks in progress"
-                description="Generate your learning path to see your next recommended step."
-                action={
-                  <Button onClick={() => navigate('/onboarding')}>Set up your profile</Button>
-                }
-              />
-            )}
+            {/* Supporting Sections: Skills & Recent Activity */}
+            <div id="progress" className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {/* Skill Matrix */}
+              <div className="rounded-[8px] border border-surface-800 bg-surface-900/50 p-6">
+                <div className="flex items-center justify-between border-b border-surface-800 pb-3">
+                  <div>
+                    <p className="font-mono text-[10px] font-medium uppercase tracking-widest text-primary-400">
+                      &gt; TELEMETRY / SKILLS
+                    </p>
+                    <h3 className="mt-0.5 text-base font-semibold text-white uppercase tracking-tight">
+                      SKILL MATRIX
+                    </h3>
+                  </div>
+                  <span className="font-mono text-[10px] text-surface-500">CONFIDENCE GRAPH</span>
+                </div>
 
-            {/* Skills charts */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <Card>
-                <h3 className="mb-4 text-sm font-semibold text-surface-300">Skill radar</h3>
                 {hasSkills ? (
-                  <div className="h-72">
+                  <div className="mt-4 h-72">
                     <ResponsiveContainer width="100%" height="100%">
                       <RadarChart data={radarData}>
-                        <PolarGrid stroke="#1e293b" />
-                        <PolarAngleAxis dataKey="skill" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                        <PolarGrid stroke="#27272a" />
+                        <PolarAngleAxis dataKey="skill" tick={{ fill: '#a1a1aa', fontSize: 10, fontFamily: 'JetBrains Mono' }} />
                         <PolarRadiusAxis
                           angle={30}
                           domain={[0, 100]}
-                          tick={{ fill: '#64748b', fontSize: 10 }}
+                          tick={{ fill: '#71717a', fontSize: 9, fontFamily: 'JetBrains Mono' }}
                         />
                         <Radar
-                          name="Skills"
+                          name="Confidence"
                           dataKey="level"
-                          stroke="#6366f1"
-                          fill="#6366f1"
-                          fillOpacity={0.2}
-                          strokeWidth={2}
+                          stroke="#FACC15"
+                          fill="#FACC15"
+                          fillOpacity={0.15}
+                          strokeWidth={1.5}
                         />
                       </RadarChart>
                     </ResponsiveContainer>
                   </div>
                 ) : (
-                  <EmptyState title="No skills yet" description="Your skill levels will appear here once you set up your profile." />
-                )}
-              </Card>
-
-              <Card>
-                <h3 className="mb-4 text-sm font-semibold text-surface-300">Skill levels</h3>
-                {hasSkills ? (
-                  <div className="h-72">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={barData} layout="vertical" margin={{ left: 10 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                        <XAxis type="number" domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 10 }} />
-                        <YAxis
-                          type="category"
-                          dataKey="name"
-                          tick={{ fill: '#94a3b8', fontSize: 11 }}
-                          width={90}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            background: '#1e293b',
-                            border: '1px solid #334155',
-                            borderRadius: '8px',
-                          }}
-                          labelStyle={{ color: '#e2e8f0' }}
-                          itemStyle={{ color: '#a5b4fc' }}
-                        />
-                        <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                          {barData.map((entry, i) => (
-                            <Cell
-                              key={i}
-                              fill={
-                                entry.value >= 70 ? '#10b981' : entry.value >= 40 ? '#f59e0b' : '#6366f1'
-                              }
-                            />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
+                  <div className="py-8">
+                    <EmptyState
+                      title="No skill points registered"
+                      description="Skill confidence levels will populate as you complete modules and tests."
+                    />
                   </div>
-                ) : (
-                  <EmptyState title="No skills yet" description="Your skill levels will appear here once you set up your profile." />
                 )}
-              </Card>
-            </div>
+              </div>
 
-            {/* Recent adaptations */}
-            <Card>
-              <h3 className="mb-4 text-sm font-semibold text-surface-300">Recent updates</h3>
-              {hasAdaptations ? (
-                <ul className="space-y-3">
-                  {dashboard.recent_adaptations.map((a, i) => (
-                    <li
-                      key={i}
-                      className="flex items-start gap-3 rounded-xl bg-surface-800/50 p-3"
-                    >
-                      <span className="text-lg" aria-hidden="true">
-                        {a.trigger === 'course_completed' ? '✅'
-                          : a.trigger === 'assessment_failed' ? '❌'
-                            : a.trigger === 'course_skipped' ? '⏭️'
-                              : '🔄'}
-                      </span>
-                      <div>
-                        <p className="text-sm text-surface-200">{a.explanation}</p>
-                        <p className="mt-1 text-xs text-surface-500">
-                          {a.created_at?.split('T')[0] || ''}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <EmptyState
-                  icon={Sparkles}
-                  title="No updates yet"
-                  description="Progress on your roadmap will appear here as you complete steps."
-                />
-              )}
-            </Card>
+              {/* Recent Activity & Adaptive Events */}
+              <div className="rounded-[8px] border border-surface-800 bg-surface-900/50 p-6">
+                <div className="flex items-center justify-between border-b border-surface-800 pb-3">
+                  <div>
+                    <p className="font-mono text-[10px] font-medium uppercase tracking-widest text-primary-400">
+                      &gt; AUDIT LOG / ADAPTATIONS
+                    </p>
+                    <h3 className="mt-0.5 text-base font-semibold text-white uppercase tracking-tight">
+                      RECENT PROGRESS
+                    </h3>
+                  </div>
+                  <span className="font-mono text-[10px] text-surface-500">EVENT FEED</span>
+                </div>
+
+                {hasAdaptations ? (
+                  <ul className="mt-4 space-y-2.5">
+                    {dashboard.recent_adaptations.map((a, i) => (
+                      <li
+                        key={i}
+                        className="flex items-start gap-3 rounded-[6px] border border-surface-800 bg-surface-950/70 p-3"
+                      >
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[3px] border border-primary-400/30 bg-primary-400/10 text-primary-400">
+                          <CheckCircle2 className="h-3 w-3" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-surface-200 leading-relaxed">{a.explanation}</p>
+                          <p className="mt-1 font-mono text-[10px] text-surface-500">
+                            {a.created_at?.split('T')[0] || 'Recently'} · Trigger: {a.trigger?.replace('_', ' ').toUpperCase()}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="py-8">
+                    <EmptyState
+                      icon={Sparkles}
+                      title="No recent adaptations recorded"
+                      description="Events will record automatically when milestones change status or tests are logged."
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
           </>
         )}
       </div>
     </AppShell>
   )
 }
+

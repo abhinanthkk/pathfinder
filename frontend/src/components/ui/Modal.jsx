@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import PropTypes from 'prop-types'
@@ -8,6 +8,7 @@ Modal.propTypes = {
   open: PropTypes.bool,
   onClose: PropTypes.func,
   title: PropTypes.node,
+  tag: PropTypes.string,
   description: PropTypes.node,
   children: PropTypes.node,
   footer: PropTypes.node,
@@ -18,6 +19,7 @@ export function Modal({
   open,
   onClose,
   title,
+  tag,
   description,
   children,
   footer,
@@ -25,6 +27,7 @@ export function Modal({
 }) {
   const panelRef = useRef(null)
   const previouslyFocused = useRef(null)
+  const titleId = useId()
 
   const sizeClasses = {
     sm: 'max-w-md',
@@ -62,7 +65,6 @@ export function Modal({
     document.addEventListener('keydown', handleKeyDown)
     document.body.style.overflow = 'hidden'
 
-    // focus the first focusable element
     const focusables = panelRef.current?.querySelectorAll(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     )
@@ -82,7 +84,7 @@ export function Modal({
   return createPortal(
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/75 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -90,12 +92,17 @@ export function Modal({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
-        className={`relative w-full ${sizeClasses[size]} max-h-[90vh] overflow-y-auto rounded-2xl border border-surface-800 bg-surface-900 p-6 shadow-2xl`}
+        aria-labelledby={titleId}
+        className={`relative w-full ${sizeClasses[size]} max-h-[90vh] overflow-y-auto rounded-[10px] border border-surface-700 bg-surface-900 p-6 shadow-2xl`}
       >
-        <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="mb-5 flex items-start justify-between gap-4 border-b border-surface-800 pb-4">
           <div>
-            <h2 className="text-lg font-semibold text-white">{title}</h2>
+            {tag && (
+              <p className="mb-1 font-mono text-[10px] font-medium uppercase tracking-widest text-primary-400">
+                {tag}
+              </p>
+            )}
+            <h2 id={titleId} className="text-lg font-semibold text-white">{title}</h2>
             {description && <p className="mt-1 text-sm text-surface-400">{description}</p>}
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close dialog">
@@ -103,9 +110,10 @@ export function Modal({
           </Button>
         </div>
         <div>{children}</div>
-        {footer && <div className="mt-6 flex justify-end gap-3">{footer}</div>}
+        {footer && <div className="mt-6 flex justify-end gap-3 border-t border-surface-800 pt-4">{footer}</div>}
       </div>
     </div>,
     document.body
   )
 }
+

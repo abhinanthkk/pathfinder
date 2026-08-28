@@ -7,10 +7,13 @@ Spinner.propTypes = {
 
 export function Spinner({ label = 'Loading…', className = '' }) {
   return (
-    <div role="status" className={`flex flex-col items-center justify-center gap-3 ${className}`}>
-      <span className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent" />
-      {label && <span className="text-sm text-surface-400">{label}</span>}
-      <span className="sr-only">{label}</span>
+    <div role="status" aria-live="polite" className={`flex flex-col items-center justify-center gap-3 ${className}`}>
+      <span
+        className="h-6 w-6 animate-spin rounded-full border-2 border-surface-700 border-t-primary-400"
+        aria-hidden="true"
+      />
+      {label && <span className="font-mono text-xs text-surface-400 tracking-wide uppercase">{label}</span>}
     </div>
   )
 }
+
