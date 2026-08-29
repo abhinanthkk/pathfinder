@@ -6,6 +6,7 @@ import { Logo } from '../shared/Logo'
 import { AskPathfinder } from '../shared/AskPathfinder'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
+import { RoleSwitcher } from '../roles/RoleSwitcher'
 
 const NAV_GROUPS = [
   {
@@ -21,7 +22,10 @@ const NAV_GROUPS = [
   },
   {
     label: 'ACCOUNT',
-    items: [{ to: '/onboarding', label: 'Profile', icon: User }],
+    items: [
+      { to: '/profile', label: 'My Profile', icon: User },
+      { to: '/onboarding', label: 'Edit Goal', icon: Map },
+    ],
   },
 ]
 
@@ -270,6 +274,7 @@ export function AppShell({ children }) {
           )}
         </div>
         {renderNav(expanded)}
+        <RoleSwitcher expanded={expanded} onExpand={() => setExpanded(true)} />
         {renderUserMenu(expanded)}
       </aside>
 
@@ -325,6 +330,7 @@ export function AppShell({ children }) {
             </div>
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               {renderNav(true)}
+              <RoleSwitcher expanded onExpand={() => {}} />
             </div>
             {renderUserMenu(true)}
           </div>
@@ -333,6 +339,15 @@ export function AppShell({ children }) {
 
       {/* Persistent AI Assistant Drawer */}
       <AskPathfinder isOpen={assistantOpen} onClose={() => setAssistantOpen(false)} />
+
+      {/* Floating AI assistant button (bottom-right) */}
+      <button
+        onClick={() => setAssistantOpen(true)}
+        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-primary-400/40 bg-surface-900 shadow-2xl hover:bg-surface-800 hover:border-primary-400/70 transition-all"
+        aria-label="Open AI Assistant"
+      >
+        <Sparkles className="h-6 w-6 text-primary-400" />
+      </button>
 
       {/* Main content — adapts to collapsed/expanded sidebar, never overlaps it */}
       <main

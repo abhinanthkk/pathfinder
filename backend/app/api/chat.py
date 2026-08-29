@@ -80,13 +80,24 @@ async def chat(data: ChatMessage, db: Session = Depends(get_db), current_user: U
             "learning roadmap. Tell me what you'd like to become (e.g. a backend "
             "developer or data scientist) and what you already know."
         )
-        return ChatResponse(reply=reply, extracted_profile=current, profile_complete=False)
+        return ChatResponse(type="chat", reply=reply, extracted_profile=current, profile_complete=False)
 
     # 2) General / learning questions → answer with real data (fast), no roadmap regen
     if intent == "question":
         answer = _answer_question(msg, db, sg, user_id)
         _save_assistant_reply(db, user_id, answer)
-        return ChatResponse(reply=answer, extracted_profile=current, profile_complete=False)
+        # Detect if this is an explanation request (why/explain/reason)
+        is_explanation = bool(re.search(r"\b(why|explain|reason|because|what is|what's|define|tell me about)\b", msg.lower()))
+        if is_explanation:
+            reasons = _extract_reasons(answer)
+            return ChatResponse(
+                type="explanation",
+                reply=answer,
+                reasons=reasons,
+                extracted_profile=current,
+                profile_complete=False,
+            )
+        return ChatResponse(type="chat", reply=answer, extracted_profile=current, profile_complete=False)
 
     # 3) Roadmap generation request → build path if profile is usable
     if intent == "generate_roadmap":
@@ -98,8 +109,8 @@ async def chat(data: ChatMessage, db: Session = Depends(get_db), current_user: U
                 f"roadmap. Could you tell me: {', '.join(m.replace('_', ' ').upper() for m in missing)}?"
             )
             _save_assistant_reply(db, user_id, reply)
-            return ChatResponse(reply=reply, extracted_profile=current, profile_complete=False)
-        
+            return ChatResponse(type="chat", reply=reply, extracted_profile=current, profile_complete=False)
+
         response = _generate_and_reply(db, user_id, current)
         _save_assistant_reply(db, user_id, response.reply)
         return response
@@ -107,7 +118,9 @@ async def chat(data: ChatMessage, db: Session = Depends(get_db), current_user: U
     # 4) Roadmap modification (time / scope) → update profile + regenerate
     if intent == "modify_roadmap":
         modified = _apply_modification(msg, db, user_id, sg)
-        response = _generate_and_reply(db, user_id, _snapshot_profile(db, user_id), modified_note=modified)
+        response = _generate_and_reply(
+            db, user_id, _snapshot_profile(db, user_id), modified_note=modified
+        )
         _save_assistant_reply(db, user_id, response.reply)
         return response
 
@@ -125,6 +138,7 @@ async def chat(data: ChatMessage, db: Session = Depends(get_db), current_user: U
         reply = _confirm_profile(current)
         _save_assistant_reply(db, user_id, reply)
         return ChatResponse(
+            type="chat",
             reply=reply,
             extracted_profile=current,
             profile_complete=True,
@@ -132,7 +146,7 @@ async def chat(data: ChatMessage, db: Session = Depends(get_db), current_user: U
 
     followup = _ask_followup(missing)
     _save_assistant_reply(db, user_id, followup)
-    return ChatResponse(reply=followup, extracted_profile=current, profile_complete=False)
+    return ChatResponse(type="chat", reply=followup, extracted_profile=current, profile_complete=False)
 
 
 # ---------------------------------------------------------------------------
@@ -502,8 +516,11 @@ def _generate_and_reply(db, user_id, current, modified_note=None):
         m_names = " → ".join(f'"{m.title}"' for m in result.milestones[:3])
         if total < 0:
             total = 0
+        is_modification = modified_note is not None
+        response_type = "path_update" if is_modification else "roadmap_generation"
         lead = modified_note or "Here's your personalized learning roadmap!"
         return ChatResponse(
+            type=response_type,
             reply=(
                 f"{lead}\n\nYour roadmap has {len(result.milestones)} milestones "
                 f"({m_names}{'...' if len(result.milestones) > 3 else ''}). "
@@ -514,11 +531,31 @@ def _generate_and_reply(db, user_id, current, modified_note=None):
             profile_complete=True,
         )
     return ChatResponse(
+        type="chat",
         reply="I tried to generate your roadmap, but ran into a snag. Make sure your goal "
         "and current skills are set, then say 'Generate my roadmap' again.",
         extracted_profile=current,
         profile_complete=False,
     )
+
+
+def _extract_reasons(reply: str) -> list[str]:
+    """
+    Extract bullet-point reasons from an explanation reply.
+    Returns a list of reason strings, or the whole reply as one item.
+    """
+    lines = reply.splitlines()
+    reasons = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith(("- ", "• ", "* ", "· ")):
+            reasons.append(stripped[2:].strip())
+        elif stripped and stripped[0].isdigit() and len(stripped) > 2 and stripped[1] in ".):":
+            reasons.append(stripped[2:].strip())
+    if not reasons and reply.strip():
+        # Return the whole reply as a single reason
+        reasons = [reply.strip()]
+    return reasons
 
 
 # ---------------------------------------------------------------------------

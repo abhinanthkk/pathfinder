@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
@@ -16,8 +16,12 @@ def create_path(data: PathRequest, db: Session = Depends(get_db), current_user: 
 
 
 @router.get("/path", response_model=PathResponse)
-def fetch_path(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    result = get_path(db, current_user.id)
+def fetch_path(
+    path_id: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = get_path(db, current_user.id, path_id)
     if not result.path_id:
         raise HTTPException(status_code=404, detail="No active learning path found")
     return result

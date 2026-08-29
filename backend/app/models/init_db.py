@@ -5,18 +5,22 @@ from app.models.models import (
     User, LearnerProfile, UserSkill,
     LearningPath, PathNode,
     ProgressEvent, AdaptationEvent,
-    ChatMessage
+    ChatMessage,
+    UserStreak, UserActivity, UserBadge, SkillProgress, GeneratedRoadmap,
 )
 
 
-def _ensure_column(table: str, column: str):
+def _ensure_column(table: str, column: str, col_type: str = "VARCHAR DEFAULT ''"):
     if "sqlite" not in str(engine.url):
         return
     insp = inspect(engine)
-    columns = {col["name"] for col in insp.get_columns(table)}
+    try:
+        columns = {col["name"] for col in insp.get_columns(table)}
+    except Exception:
+        return
     if column not in columns:
         with engine.begin() as conn:
-            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} VARCHAR DEFAULT ''"))
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
 
 
 def init_db():
@@ -26,3 +30,14 @@ def init_db():
     _ensure_column("users", "name")
     _ensure_column("users", "email")
     _ensure_column("users", "password_hash")
+    # PathNode: resources/skills columns for new features
+    _ensure_column("path_nodes", "description", "TEXT DEFAULT ''")
+    _ensure_column("path_nodes", "skills", "TEXT DEFAULT '[]'")
+    _ensure_column("path_nodes", "resources", "TEXT DEFAULT '[]'")
+    _ensure_column("path_nodes", "prerequisites", "TEXT DEFAULT '[]'")
+    _ensure_column("path_nodes", "domain", "VARCHAR DEFAULT ''")
+    # Multi-role support
+    _ensure_column("learning_paths", "is_current", "BOOLEAN DEFAULT 0")
+    _ensure_column("learning_paths", "is_custom", "BOOLEAN DEFAULT 0")
+    _ensure_column("skill_progress", "path_id", "VARCHAR DEFAULT ''")
+    _ensure_column("user_badges", "path_id", "VARCHAR DEFAULT ''")

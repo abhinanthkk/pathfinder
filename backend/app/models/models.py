@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Float, Boolean, DateTime, ForeignKey, JSON, Integer, Enum as SAEnum
+from sqlalchemy import Column, String, Float, Boolean, DateTime, ForeignKey, JSON, Integer, Date
 from sqlalchemy.orm import relationship
 from app.models.database import Base
 
@@ -27,6 +27,10 @@ class User(Base):
     paths = relationship("LearningPath", back_populates="user")
     progress_events = relationship("ProgressEvent", back_populates="user")
     chat_messages = relationship("ChatMessage", back_populates="user")
+    streak = relationship("UserStreak", back_populates="user", uselist=False)
+    activities = relationship("UserActivity", back_populates="user")
+    badges = relationship("UserBadge", back_populates="user")
+    skill_progress = relationship("SkillProgress", back_populates="user")
 
 
 class LearnerProfile(Base):
@@ -68,6 +72,8 @@ class LearningPath(Base):
     status = Column(String, default="active")
     target_role = Column(String, default="")
     profile_signature = Column(String, default="")
+    is_current = Column(Boolean, default=False)
+    is_custom = Column(Boolean, default=False)
     estimated_completion_date = Column(DateTime, nullable=True)
     total_estimated_hours = Column(Float, default=0.0)
     total_estimated_weeks = Column(Float, default=0.0)
@@ -85,10 +91,15 @@ class PathNode(Base):
     path_id = Column(String, ForeignKey("learning_paths.id"), nullable=False)
     resource_id = Column(String, nullable=False)
     resource_title = Column(String, default="")
+    description = Column(String, default="")
     milestone_number = Column(Integer, default=1)
     order_in_milestone = Column(Integer, default=1)
     status = Column(String, default="locked")
     estimated_hours = Column(Float, default=0.0)
+    skills = Column(JSON, default=list)
+    resources = Column(JSON, default=list)
+    prerequisites = Column(JSON, default=list)
+    domain = Column(String, default="")
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
 
@@ -133,3 +144,72 @@ class ChatMessage(Base):
     created_at = Column(DateTime, default=utcnow)
 
     user = relationship("User", back_populates="chat_messages")
+
+
+class UserStreak(Base):
+    __tablename__ = "user_streaks"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id"), unique=True, nullable=False)
+    current_streak = Column(Integer, default=0)
+    longest_streak = Column(Integer, default=0)
+    last_activity_date = Column(Date, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow)
+
+    user = relationship("User", back_populates="streak")
+
+
+class UserActivity(Base):
+    __tablename__ = "user_activities"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    activity_date = Column(Date, nullable=False)
+    activity_type = Column(String, default="step_completed")
+    extra_data = Column(JSON, default=dict)
+    created_at = Column(DateTime, default=utcnow)
+
+    user = relationship("User", back_populates="activities")
+
+
+class UserBadge(Base):
+    __tablename__ = "user_badges"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    badge_id = Column(String, nullable=False)
+    badge_name = Column(String, nullable=False)
+    description = Column(String, default="")
+    icon = Column(String, default="🏆")
+    path_id = Column(String, nullable=False, default="")
+    earned_at = Column(DateTime, default=utcnow)
+
+    user = relationship("User", back_populates="badges")
+
+
+class SkillProgress(Base):
+    __tablename__ = "skill_progress"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    path_id = Column(String, nullable=False, default="")
+    skill_name = Column(String, nullable=False)
+    progress_percentage = Column(Float, default=0.0)
+    completed_weight = Column(Float, default=0.0)
+    total_weight = Column(Float, default=0.0)
+    updated_at = Column(DateTime, default=utcnow)
+
+    user = relationship("User", back_populates="skill_progress")
+
+
+class GeneratedRoadmap(Base):
+    """Stores AI-generated roadmaps for custom domains not in skills.yaml"""
+    __tablename__ = "generated_roadmaps"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, nullable=False)
+    goal = Column(String, nullable=False)
+    roadmap_data = Column(JSON, nullable=False)  # Full structured roadmap
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow)

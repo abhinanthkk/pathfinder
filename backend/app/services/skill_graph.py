@@ -64,17 +64,54 @@ class SkillGraph:
         goal = self.goals.get(role, {})
         return goal.get("required_skills", {})
 
+    # Additional display-name aliases → canonical goals.yaml key. These cover
+    # the labels/IDs used by the frontend and common user phrasings so an
+    # unrecognised role still maps to a properly-defined roadmap instead of
+    # silently producing an empty path.
+    _ROLE_ALIASES = {
+        "ai/ml engineer": "ml_engineer",
+        "ai ml engineer": "ml_engineer",
+        "ml engineer": "ml_engineer",
+        "machine learning engineer": "ml_engineer",
+        "machine learning": "ml_engineer",
+        "ai engineer": "ml_engineer",
+        "ui/ux designer": "uiux_designer",
+        "ui ux designer": "uiux_designer",
+        "ui/ux design": "uiux_designer",
+        "ui ux design": "uiux_designer",
+        "ui designer": "uiux_designer",
+        "ux designer": "uiux_designer",
+        "ux design": "uiux_designer",
+        "product designer": "uiux_designer",
+        "devops/cloud": "devops_engineer",
+        "devops cloud": "devops_engineer",
+        "devops engineer": "devops_engineer",
+        "cloud engineer": "devops_engineer",
+        "android developer": "android_developer",
+        "android dev": "android_developer",
+        "cs": "cybersecurity",
+        "cybersecurity": "cybersecurity",
+        "cyber security": "cybersecurity",
+        "security engineer": "cybersecurity",
+    }
+
     def resolve_goal_role(self, goal_role: str) -> Optional[str]:
         if not goal_role:
             return None
         if goal_role in self.goals:
             return goal_role
-        norm = goal_role.strip().lower().replace(" ", "_").replace("-", "_")
-        if norm in self.goals:
-            return norm
+        norm = goal_role.strip().lower().replace("_", " ").replace("-", " ")
+        norm_collapsed = " ".join(norm.split())
+        if norm_collapsed in self.goals:
+            return norm_collapsed
         for key, data in self.goals.items():
             if data.get("name", "").lower() == goal_role.strip().lower():
                 return key
+        # Check alias map with a few normalisations
+        candidates = [norm_collapsed, norm, goal_role.strip().lower()]
+        for c in candidates:
+            if c in self._ROLE_ALIASES:
+                return self._ROLE_ALIASES[c]
         return None
 
     def get_resource(self, resource_id: str) -> Optional[dict]:

@@ -15,11 +15,16 @@ from app.api import progress as progress_api
 from app.api import dashboard as dashboard_api
 from app.api import qa as qa_api
 from app.api import auth as auth_api
+from app.api import streak as streak_api
+from app.api import badges as badges_api
+from app.api import skill_progress as skill_progress_api
+from app.api import roadmap_generate as roadmap_generate_api
+from app.api import goals as goals_api
 
 app = FastAPI(
     title="Pathfinder API",
     description="AI-Powered Personalized Learning Path Recommender",
-    version="0.1.0",
+    version="0.2.0",
 )
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
@@ -32,6 +37,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Existing routers
 app.include_router(profile_api.router, prefix="/api")
 app.include_router(recommendation_api.router, prefix="/api")
 app.include_router(path_api.router, prefix="/api")
@@ -41,6 +47,13 @@ app.include_router(progress_api.router, prefix="/api")
 app.include_router(dashboard_api.router, prefix="/api")
 app.include_router(qa_api.router, prefix="/api")
 app.include_router(auth_api.router, prefix="/api")
+
+# New routers
+app.include_router(streak_api.router, prefix="/api")
+app.include_router(badges_api.router, prefix="/api")
+app.include_router(skill_progress_api.router, prefix="/api")
+app.include_router(roadmap_generate_api.router, prefix="/api")
+app.include_router(goals_api.router, prefix="/api")
 
 
 @app.on_event("startup")

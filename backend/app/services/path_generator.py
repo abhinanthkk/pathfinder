@@ -18,11 +18,15 @@ MILESTONE_TITLES = [
 ]
 
 
-def generate_learning_path(db: Session, user_id: str) -> PathResponse:
+def generate_learning_path(db: Session, user_id: str, target_role: str | None = None) -> PathResponse:
     sg = get_skill_graph()
 
     profile = db.query(LearnerProfile).filter(LearnerProfile.user_id == user_id).first()
     if not profile:
+        return PathResponse(path_id="", milestones=[])
+
+    role = (target_role or profile.target_role or "").strip()
+    if not role:
         return PathResponse(path_id="", milestones=[])
 
     user_skills = {
@@ -30,7 +34,7 @@ def generate_learning_path(db: Session, user_id: str) -> PathResponse:
         for s in db.query(UserSkill).filter(UserSkill.user_id == user_id).all()
     }
 
-    goal_skills = sg.get_goal_skills(profile.target_role)
+    goal_skills = sg.get_goal_skills(role)
     gaps = {
         skill: max(0.0, required - user_skills.get(skill, 0.0))
         for skill, required in goal_skills.items()
@@ -44,6 +48,14 @@ def generate_learning_path(db: Session, user_id: str) -> PathResponse:
     resource_dag = _build_resource_dag(sg, all_resources)
 
     sorted_resources = resource_dag.topological_sort()
+
+    # Persist the skills/experience choices on the learner profile so they are kept.
+    if target_role:
+        resolved = sg.resolve_goal_role(target_role)
+        profile.target_role = resolved or target_role
+        goal_name = sg.goals.get(resolved or target_role, {}).get("name") or target_role
+        profile.goal = goal_name
+        db.add(profile)
 
     milestones = _group_milestones(sorted_resources, sg)
 
@@ -66,10 +78,12 @@ def generate_learning_path(db: Session, user_id: str) -> PathResponse:
                 node_id=f"{user_id}_{rid}",
                 resource_id=rid,
                 title=res.get("title", rid),
+                description=res.get("description", ""),
                 status="available" if met else "locked",
                 estimated_hours=res.get("estimated_hours", 5),
                 milestone=i + 1,
                 order=j + 1,
+                skills=res.get("skills", []),
             ))
 
         milestone_responses.append(MilestoneResponse(
@@ -88,41 +102,78 @@ def generate_learning_path(db: Session, user_id: str) -> PathResponse:
     total_weeks = cumulative_weeks
     completion_date = now + timedelta(weeks=total_weeks)
 
-    existing = db.query(LearningPath).filter(
+    # Create-or-update: reuse the existing path for THIS role so other active
+    # roles are never touched.
+    path = (
+        db.query(LearningPath)
+        .filter(
+            LearningPath.user_id == user_id,
+            LearningPath.status == "active",
+            LearningPath.target_role == role,
+        )
+        .first()
+    )
+    if path:
+        db.query(PathNode).filter(PathNode.path_id == path.id).delete()
+    else:
+        path = LearningPath(user_id=user_id, status="active")
+        db.add(path)
+
+    path.target_role = role
+    path.is_custom = False
+    path.is_current = True
+    path.status = "active"
+    path.profile_signature = _profile_signature(profile, user_skills, goal_skills)
+    path.total_estimated_hours = total_hours
+    path.total_estimated_weeks = total_weeks
+    path.estimated_completion_date = completion_date
+    db.flush()
+
+    # Exactly one current path.
+    for other in db.query(LearningPath).filter(
         LearningPath.user_id == user_id,
         LearningPath.status == "active",
-    ).first()
-    if existing:
-        db.query(PathNode).filter(PathNode.path_id == existing.id).delete()
-        db.delete(existing)
-        db.flush()
-
-    path = LearningPath(
-        user_id=user_id,
-        status="active",
-        target_role=profile.target_role,
-        profile_signature=_profile_signature(profile, user_skills, goal_skills),
-        total_estimated_hours=total_hours,
-        total_estimated_weeks=total_weeks,
-        estimated_completion_date=completion_date,
-    )
-    db.add(path)
-    db.flush()
+        LearningPath.id != path.id,
+    ).all():
+        other.is_current = False
+        db.add(other)
 
     for milestone in milestone_responses:
         for node in milestone.nodes:
+            # Pull skills, description, resources from the skill graph
+            sg_res = sg.resources.get(node.resource_id, {})
+            node_skills = sg_res.get("skills", [])
+            node_desc = sg_res.get("description", "")
+            # Build basic resources list with YouTube + GFG fallback
+            import urllib.parse
+            query = urllib.parse.quote_plus(node.title + " tutorial")
+            gfg_slug = node.title.lower().replace(" ", "-")
+            node_resources = [
+                {"title": f"{node.title} - Full Course", "type": "youtube",
+                 "url": f"https://www.youtube.com/results?search_query={query}", "source": "YouTube"},
+                {"title": f"{node.title} on GeeksforGeeks", "type": "article",
+                 "url": f"https://www.geeksforgeeks.org/{gfg_slug}/", "source": "GeeksforGeeks"},
+            ]
             db_node = PathNode(
                 path_id=path.id,
                 resource_id=node.resource_id,
                 resource_title=node.title,
+                description=node_desc,
                 milestone_number=milestone.number,
                 order_in_milestone=node.order,
                 status=node.status,
                 estimated_hours=node.estimated_hours,
+                skills=node_skills,
+                resources=node_resources,
+                domain=role,
             )
             db.add(db_node)
 
     db.commit()
+
+    # Auto-select the current step so the learner never needs a Start button.
+    from app.services.progression import select_current_step
+    select_current_step(db, path)
 
     return PathResponse(
         path_id=path.id,
@@ -275,25 +326,15 @@ def _difficulty_score(resource, experience):
     return max(0.0, 1.0 - abs(d - e) / 3.0)
 
 
-def get_path(db: Session, user_id: str) -> PathResponse:
-    path = db.query(LearnerProfile).filter(LearnerProfile.user_id == user_id).first()
-    if not path:
-        return PathResponse(path_id="", milestones=[])
+def get_path(db: Session, user_id: str, path_id: str | None = None) -> PathResponse:
+    from app.services.progression import get_active_path, select_current_step
 
-    active = db.query(LearningPath).filter(
-        LearningPath.user_id == user_id,
-        LearningPath.status == "active",
-    ).first()
+    active = get_active_path(db, user_id, path_id)
     if not active:
         return PathResponse(path_id="", milestones=[])
 
-    current_signature = _profile_signature(
-        path,
-        {s.skill_id: s.confidence for s in db.query(UserSkill).filter(UserSkill.user_id == user_id).all()},
-        get_skill_graph().get_goal_skills(path.target_role),
-    )
-    if active.target_role != path.target_role or active.profile_signature != current_signature:
-        return generate_learning_path(db, user_id)
+    # Defensively auto-select the current step (idempotent, persists across refresh).
+    select_current_step(db, active)
 
     nodes = db.query(PathNode).filter(PathNode.path_id == active.id).order_by(
         PathNode.milestone_number, PathNode.order_in_milestone
@@ -305,10 +346,17 @@ def get_path(db: Session, user_id: str) -> PathResponse:
             node_id=n.id,
             resource_id=n.resource_id,
             title=n.resource_title,
+            description=n.description or "",
             status=n.status,
             estimated_hours=n.estimated_hours,
             milestone=n.milestone_number,
             order=n.order_in_milestone,
+            skills=n.skills or [],
+            resources=[
+                {"title": r.get("title",""), "type": r.get("type","article"),
+                 "url": r.get("url",""), "source": r.get("source","")}
+                for r in (n.resources or [])
+            ],
         )
         milestones.setdefault(n.milestone_number, []).append(mr)
 
