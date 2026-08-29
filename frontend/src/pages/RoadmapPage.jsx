@@ -16,6 +16,7 @@ import useUserStore from '../store/useUserStore'
 import usePathStore from '../store/usePathStore'
 import useGoalsStore from '../store/useGoalsStore'
 import { useToast } from '../context/ToastContext'
+import { RoadmapSwitcher } from '../components/roles/RoadmapSwitcher'
 import api from '../services/api'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -290,7 +291,7 @@ FinalProjectNode.propTypes = {
 
 // ─── Detail Panel ──────────────────────────────────────────────────────────────
 
-function DetailPanel({ step, onClose, onMarkComplete, onStartLearning, onSkip, onExplain, explaining, explanation }) {
+function DetailPanel({ step, onClose, onMarkComplete, onSkip, onExplain, explaining, explanation }) {
   if (!step) return null
   const meta = statusMeta(step.status)
   const Icon = meta.icon
@@ -450,15 +451,6 @@ function DetailPanel({ step, onClose, onMarkComplete, onStartLearning, onSkip, o
                 Mark Complete
               </button>
             )}
-            {(step.status === 'available' || step.status === 'next' || step.status === 'locked') && (
-              <button
-                onClick={() => onStartLearning(step)}
-                className="flex w-full items-center justify-center gap-2 rounded-[6px] bg-primary-400/10 border border-primary-400/40 py-2.5 font-mono text-xs font-medium text-primary-400 transition-all hover:bg-primary-400/20 hover:border-primary-400/60"
-              >
-                <Play className="h-4 w-4" />
-                Start Learning
-              </button>
-            )}
             {step.status !== 'skipped' && step.status !== 'completed' && (
               <button
                 onClick={() => onSkip(step)}
@@ -478,7 +470,6 @@ DetailPanel.propTypes = {
   step: PropTypes.object,
   onClose: PropTypes.func.isRequired,
   onMarkComplete: PropTypes.func.isRequired,
-  onStartLearning: PropTypes.func.isRequired,
   onSkip: PropTypes.func.isRequired,
   onExplain: PropTypes.func.isRequired,
   explaining: PropTypes.bool,
@@ -575,19 +566,6 @@ export default function RoadmapPage() {
     }
   }
 
-  const handleStartLearning = async (step) => {
-    if (!step?.resource_id) return
-    try {
-      await api.updateProgress(step.resource_id, 'in_progress')
-      updateNodeStatus(step.node_id, 'in_progress')
-      setSelectedStep((prev) => prev ? { ...prev, status: 'in_progress' } : null)
-      toast.success('Started learning!')
-      await loadPath()
-    } catch {
-      toast.error('Failed to update status.')
-    }
-  }
-
   const handleSkip = async (step) => {
     if (!step?.node_id || !activePathId) return
     try {
@@ -681,6 +659,8 @@ export default function RoadmapPage() {
 
         {!loading && !error && milestones.length > 0 && (
           <>
+            <RoadmapSwitcher />
+
             {/* Progress summary bar */}
             <div className="rounded-[8px] border border-surface-800 bg-surface-900/60 px-5 py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -796,7 +776,6 @@ export default function RoadmapPage() {
           step={selectedStep}
           onClose={() => setSelectedStep(null)}
           onMarkComplete={() => handleMarkComplete(selectedStep)}
-          onStartLearning={() => handleStartLearning(selectedStep)}
           onSkip={() => handleSkip(selectedStep)}
           onExplain={() => handleWhyRecommended(selectedStep)}
           explaining={explaining}

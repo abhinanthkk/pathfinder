@@ -12,14 +12,14 @@ import { useToast } from '../context/ToastContext'
 const GOALS = [
   { id: 'backend_developer', label: 'Backend Developer', useAI: false },
   { id: 'frontend_developer', label: 'Frontend Developer', useAI: false },
+  { id: 'full_stack_developer', label: 'Full Stack Developer', useAI: true },
   { id: 'data_scientist', label: 'Data Scientist', useAI: false },
-  { id: 'ml_engineer', label: 'AI/ML Engineer', useAI: false },
+  { id: 'ml_engineer', label: 'Machine Learning Engineer', useAI: false },
+  { id: 'ai_engineer', label: 'AI Engineer', useAI: true },
+  { id: 'devops_engineer', label: 'DevOps Engineer', useAI: false },
   { id: 'cybersecurity', label: 'Cybersecurity', useAI: false },
-  { id: 'devops_engineer', label: 'DevOps/Cloud', useAI: false },
-  { id: 'android_developer', label: 'Android Dev', useAI: false },
-  { id: 'uiux_designer', label: 'UI/UX Design', useAI: false },
-  { id: 'flutter_dev', label: 'Flutter Dev', useAI: true },
-  { id: 'game_dev', label: 'Game Dev', useAI: true },
+  { id: 'mobile_app_developer', label: 'Mobile App Developer', useAI: true },
+  { id: 'uiux_designer', label: 'UI/UX Designer', useAI: false },
 ]
 
 const QUICK_SKILLS = [

@@ -11,6 +11,7 @@ import NotFoundPage from './pages/NotFoundPage'
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'))
 const RoadmapPage = lazy(() => import('./pages/RoadmapPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const ProgressPage = lazy(() => import('./pages/ProgressPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 
 function LoadingScreen() {
@@ -55,6 +56,16 @@ function App() {
             <ProtectedRoute>
               <Suspense fallback={<LoadingScreen />}>
                 <DashboardPage />
+              </Suspense>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/progress"
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={<LoadingScreen />}>
+                <ProgressPage />
               </Suspense>
             </ProtectedRoute>
           }

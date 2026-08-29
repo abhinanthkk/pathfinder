@@ -74,8 +74,12 @@ export const generateRoadmap = (data) =>
 // Multi-role goals API
 export const getOnboardingStatus = () => api.get('/onboarding-status')
 export const getGoals = () => api.get('/goals')
+export const getPaths = () => api.get('/paths')
 export const createGoal = (data) => api.post('/goals', data, { timeout: 60000 })
 export const activateGoal = (pathId) => api.post(`/goals/${pathId}/activate`)
+export const activatePath = (pathId) => api.put(`/paths/${pathId}/activate`)
+export const archivePath = (pathId) => api.post(`/paths/${pathId}/archive`)
+export const getPathProgress = (pathId) => api.get(`/paths/${pathId}/progress`)
 export const completeStep = (pathId, nodeId) =>
   api.post(`/paths/${pathId}/steps/${nodeId}/complete`, {}, { timeout: 15000 })
 export const skipStep = (pathId, nodeId) =>
@@ -104,8 +108,12 @@ api.getSkillProgress = getSkillProgress
 api.generateRoadmap = generateRoadmap
 api.getOnboardingStatus = getOnboardingStatus
 api.getGoals = getGoals
+api.getPaths = getPaths
 api.createGoal = createGoal
 api.activateGoal = activateGoal
+api.activatePath = activatePath
+api.archivePath = archivePath
+api.getPathProgress = getPathProgress
 api.completeStep = completeStep
 api.skipStep = skipStep
 

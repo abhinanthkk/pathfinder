@@ -151,6 +151,14 @@ class ProgressResponse(BaseModel):
     streak: Optional[dict] = None
     new_badges: list[dict] = Field(default_factory=list)
     milestone_completed: Optional[int] = None
+    # Enriched one-call advancement payload so the frontend does not need to
+    # refetch the whole roadmap/progress after a complete/skip action.
+    path_id: str = ""
+    path_completed: bool = False
+    overall_progress: float = 0.0
+    current_milestone: int = 0
+    current_step: Optional[PathNodeResponse] = None
+    upcoming_steps: list[PathNodeResponse] = Field(default_factory=list)
 
 
 # --- Streak schemas ---
@@ -164,6 +172,27 @@ class StreakResponse(BaseModel):
     longest_streak: int = 0
     last_activity_date: Optional[str] = None
     weekly_activity: list[DayActivity] = Field(default_factory=list)
+
+
+# --- Progress page schemas ---
+class ProgressOverviewResponse(BaseModel):
+    path_id: str = ""
+    target_role: str = ""
+    role_label: str = ""
+    path_completed: bool = False
+    overall_progress: float = 0.0  # fraction 0..1
+    current_milestone: int = 0
+    current_milestone_title: str = ""
+    current_step: Optional[PathNodeResponse] = None
+    upcoming_steps: list[PathNodeResponse] = Field(default_factory=list)
+    completed_count: int = 0
+    completed_steps: list[PathNodeResponse] = Field(default_factory=list)
+    skipped_count: int = 0
+    skipped_steps: list[PathNodeResponse] = Field(default_factory=list)
+    total_steps: int = 0
+    estimated_completion: Optional[str] = None
+    streak: Optional[StreakResponse] = None
+    recent_adaptations: list[dict] = Field(default_factory=list)
 
 
 class ActivityRequest(BaseModel):

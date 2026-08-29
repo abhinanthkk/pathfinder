@@ -123,7 +123,7 @@ export function RoleSwitcher({ expanded, onExpand }) {
                 {g.role_label}
               </span>
               <span className="shrink-0 font-mono text-[10px] text-surface-500">
-                {Math.round(g.progress_percentage || 0)}%
+                {g.status === 'completed' ? '✓ 100%' : `${Math.round(g.progress_percentage || 0)}%`}
               </span>
               {isActive && <Check className="h-3 w-3 shrink-0 text-primary-400" aria-hidden="true" />}
             </button>

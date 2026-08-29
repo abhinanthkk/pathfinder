@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.models.database import get_db
-from app.models.models import User
+from app.models.models import User, LearningPath
 from app.schemas.profile import (
     GoalCreate,
     GoalCreateResponse,
@@ -56,4 +56,62 @@ def activate_goal(
     path = set_current_path(db, current_user.id, path_id)
     if not path:
         raise HTTPException(status_code=404, detail="Learning path not found.")
+    return get_goals_summary(db, current_user.id)
+
+
+@router.put("/paths/{path_id}/activate", response_model=GoalsResponse)
+def activate_path(
+    path_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Alias of goals activate — switches the active/current roadmap."""
+    path = set_current_path(db, current_user.id, path_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="Learning path not found.")
+    return get_goals_summary(db, current_user.id)
+
+
+@router.post("/paths/{path_id}/archive", response_model=GoalsResponse)
+def archive_path(
+    path_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Archive a roadmap so its slot can be reused. Archived paths are no longer
+    listed as active learning roles. If the archived path was the current one,
+    another active path (if any) becomes current.
+    """
+    path = (
+        db.query(LearningPath)
+        .filter(
+            LearningPath.id == path_id,
+            LearningPath.user_id == current_user.id,
+            LearningPath.status == "active",
+        )
+        .first()
+    )
+    if not path:
+        raise HTTPException(status_code=404, detail="Active learning path not found.")
+
+    if path.is_current:
+        replacement = (
+            db.query(LearningPath)
+            .filter(
+                LearningPath.user_id == current_user.id,
+                LearningPath.status == "active",
+                LearningPath.id != path_id,
+            )
+            .order_by(LearningPath.created_at.asc())
+            .first()
+        )
+        if replacement:
+            replacement.is_current = True
+            db.add(replacement)
+
+    path.status = "archived"
+    path.is_current = False
+    db.add(path)
+    db.commit()
     return get_goals_summary(db, current_user.id)

@@ -16,8 +16,8 @@ const NAV_GROUPS = [
   {
     label: 'LEARNING',
     items: [
+      { to: '/progress', label: 'Progress', icon: Activity },
       { to: '/roadmap', label: 'Roadmap', icon: Map },
-      { to: '/dashboard#progress', label: 'Progress', icon: Activity },
     ],
   },
   {

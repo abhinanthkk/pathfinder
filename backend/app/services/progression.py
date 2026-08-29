@@ -28,12 +28,19 @@ from app.models.models import (
     ProgressEvent,
     User,
     UserSkill,
+    UserStreak,
 )
-from app.schemas.profile import PathNodeResponse, ProgressResponse, SkillChange
+from app.schemas.profile import (
+    DayActivity,
+    PathNodeResponse,
+    ProgressOverviewResponse,
+    ProgressResponse,
+    SkillChange,
+    StreakResponse,
+)
 from app.services.skill_graph import get_skill_graph
 
 from app.api.streak import update_streak, _build_weekly_activity
-from app.schemas.profile import StreakResponse, DayActivity
 from app.api.badges import check_and_award_badges
 from app.api.skill_progress import recalculate_skill_progress
 
@@ -45,13 +52,20 @@ MAX_ACTIVE_PATHS = 2
 # Path selection
 # ---------------------------------------------------------------------------
 def get_active_path(db: Session, user_id: str, path_id: str | None = None) -> LearningPath | None:
-    """Return the active LearningPath. Prefers `path_id`, else the current role."""
-    base = db.query(LearningPath).filter(
-        LearningPath.user_id == user_id,
-        LearningPath.status == "active",
-    )
+    """Return the LearningPath. Prefers `path_id`, else the current role.
+
+    When a `path_id` is explicitly provided, completed paths are also returned
+    so a finished roadmap can still be viewed (progress / dashboard still work
+    and show the completed state) instead of 404ing. When no `path_id` is given,
+    only 'active' paths are candidates for the current role.
+    """
+    base = db.query(LearningPath).filter(LearningPath.user_id == user_id)
     if path_id:
-        return base.filter(LearningPath.id == path_id).first()
+        return base.filter(
+            LearningPath.id == path_id,
+            LearningPath.status.in_(("active", "completed")),
+        ).first()
+    base = base.filter(LearningPath.status == "active")
     path = base.filter(LearningPath.is_current.is_(True)).first()
     if path:
         return path
@@ -62,10 +76,17 @@ def get_active_path(db: Session, user_id: str, path_id: str | None = None) -> Le
 
 
 def set_current_path(db: Session, user_id: str, path_id: str) -> LearningPath | None:
-    """Make `path_id` the active/current role. Returns the path or None."""
+    """Make `path_id` the active/current role. Returns the path or None.
+
+    Active and completed paths may be selected so a finished roadmap can still
+    be viewed. Only 'active' paths count toward the 2-roadmap cap.
+    """
     all_paths = (
         db.query(LearningPath)
-        .filter(LearningPath.user_id == user_id, LearningPath.status == "active")
+        .filter(
+            LearningPath.user_id == user_id,
+            LearningPath.status.in_(("active", "completed")),
+        )
         .all()
     )
     target = None
@@ -155,9 +176,10 @@ def select_current_step(db: Session, path: LearningPath) -> PathNode | None:
         db.commit()
         return chosen
 
-    # 3) Finished?
-    if nodes and all(n.status == "completed" for n in nodes):
+    # 3) Finished? (every step either completed or skipped)
+    if nodes and all(_terminal(n) for n in nodes):
         path.status = "completed"
+        path.is_current = True
         db.add(path)
         db.commit()
     return None
@@ -268,12 +290,20 @@ def path_stats(nodes: list[PathNode], path_status: str = "active") -> dict:
         "completed_steps": completed,
         "skipped_steps": skipped,
         "overall_progress": round(completed / total, 2) if total else 0.0,
-        "complete": total > 0 and completed == total,
+        "complete": total > 0 and (completed + skipped) == total,
         "completed_milestones": sum(1 for d in ms.values() if d["done"]),
         "total_milestones": len(ms),
         "milestones": ms,
         "path_status": path_status,
     }
+
+
+def current_step_of(nodes: list[PathNode]) -> PathNode | None:
+    """The ACTIVE/current node of a roadmap, falling back to the earliest eligible."""
+    return next(
+        (n for n in nodes if n.status == "current"),
+        next((n for n in nodes if n.status in ("available", "in_progress")), None),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -334,6 +364,44 @@ def _verify_transition(node: PathNode, action: str) -> None:
         )
 
 
+def _advance_payload(db, user, path) -> dict:
+    """
+    Build the enriched one-call payload returned after a complete/skip action:
+    the new current step, upcoming steps, overall progress and completion flag.
+    """
+    nodes = path_nodes(db, path.id)
+    stats = path_stats(nodes, path.status)
+    current = current_step_of(nodes)
+    upcoming = []
+    if current:
+        for n in nodes:
+            if n.id == current.id:
+                continue
+            if n.status in ("available", "in_progress"):
+                upcoming.append(n)
+            if len(upcoming) >= 5:
+                break
+    return {
+        "path_id": path.id,
+        "path_completed": stats["complete"],
+        "overall_progress": stats["overall_progress"],
+        "current_milestone": current.milestone_number if current else (
+            stats["total_milestones"] if stats["complete"] else 0
+        ),
+        "current_step": build_node_response(current) if current else None,
+        "upcoming_steps": build_node_list(upcoming),
+    }
+
+
+def _next_step_title(nodes: list[PathNode], current: PathNode | None) -> str:
+    if not current:
+        left = [n for n in nodes if n.status in ("available", "in_progress")]
+        if left:
+            return left[0].resource_title or "next module"
+        return "the final milestone"
+    return current.resource_title or "next module"
+
+
 def mark_step_complete(db: Session, user: User, path: LearningPath, node: PathNode) -> ProgressResponse:
     _verify_transition(node, "complete")
     stats_before = path_stats(path_nodes(db, path.id))
@@ -364,7 +432,8 @@ def mark_step_complete(db: Session, user: User, path: LearningPath, node: PathNo
     _record_adaptation(
         db, path, "course_completed",
         f"Completed '{node.resource_title or node.id}'. "
-        f"Overall progress is now {round(stats['overall_progress'] * 100)}%.",
+        f"Overall progress is now {round(stats['overall_progress'] * 100)}%. "
+        f"Next up: {_next_step_title(nodes, current)}.",
     )
 
     # Streak + skill progress + badges (each commits internally).
@@ -385,13 +454,17 @@ def mark_step_complete(db: Session, user: User, path: LearningPath, node: PathNo
         updated_node=build_node_response(node),
         skill_changes=skill_changes,
         path_changed=True,
-        adaptation={"trigger": "course_completed", "explanation": "Roadmap updated."},
+        adaptation={
+            "trigger": "course_completed",
+            "explanation": f"Roadmap updated. Next up: {_next_step_title(nodes, current)}.",
+        },
         streak=streak_data,
         new_badges=[b.model_dump() for b in new_badges],
         milestone_completed=next(
             (num for num, d in ms_after.items() if d["done"] and not ms_before.get(num, {}).get("done")),
             None,
         ),
+        **_advance_payload(db, user, path),
     )
 
 
@@ -414,14 +487,17 @@ def mark_step_skipped(db: Session, user: User, path: LearningPath, node: PathNod
     resource = sg.get_resource(node.resource_id) if node.resource_id else None
     if resource and resource.get("prerequisites"):
         skipped_prereq_note = " This topic is a prerequisite for later steps."
-    _record_adaptation(
-        db, path, "step_skipped",
-        f"Skipped '{node.resource_title or node.id}'.{skipped_prereq_note} "
-        "Dependent steps stay locked until their prerequisites are met.",
-    )
 
     unlock_available_nodes(db, path)
     current = select_current_step(db, path)
+    nodes = path_nodes(db, path.id)
+
+    next_title = _next_step_title(nodes, current)
+    _record_adaptation(
+        db, path, "step_skipped",
+        f"You skipped '{node.resource_title or node.id}'.{skipped_prereq_note} "
+        f"The next prerequisite-compatible module is '{next_title}'.",
+    )
 
     # Skipped steps never count toward completion, so no streak bump.
     recalculate_skill_progress(db, user.id, path)
@@ -431,10 +507,15 @@ def mark_step_skipped(db: Session, user: User, path: LearningPath, node: PathNod
         updated_node=build_node_response(node),
         skill_changes={},
         path_changed=True,
-        adaptation={"trigger": "step_skipped", "explanation": "Skipped."},
+        adaptation={
+            "trigger": "step_skipped",
+            "explanation": f"You skipped '{node.resource_title or node.id}'. "
+            f"The next prerequisite-compatible module is '{next_title}'.",
+        },
         streak=None,
         new_badges=[b.model_dump() for b in new_badges],
         milestone_completed=None,
+        **_advance_payload(db, user, path),
     )
 
 
@@ -466,3 +547,110 @@ def build_node_response(node: PathNode) -> PathNodeResponse:
 
 def build_node_list(nodes: list[PathNode]) -> list[PathNodeResponse]:
     return [build_node_response(n) for n in nodes]
+
+
+# ---------------------------------------------------------------------------
+# Progress overview (used by the dedicated Progress page)
+# ---------------------------------------------------------------------------
+_MILESTONE_TITLES = [
+    "Foundations",
+    "Core Concepts",
+    "Specialized Skills",
+    "Integration & Advanced",
+    "Capstone & Mastery",
+]
+
+
+def role_label_for(key: str) -> str:
+    sg = get_skill_graph()
+    goal = sg.goals.get(key)
+    if goal:
+        return goal.get("name") or key
+    return key.replace("_", " ").title()
+
+
+def milestone_title_for(number: int) -> str:
+    if 1 <= number <= len(_MILESTONE_TITLES):
+        return _MILESTONE_TITLES[number - 1]
+    return f"Milestone {number}"
+
+
+def build_progress_overview(
+    db: Session,
+    user_id: str,
+    path: LearningPath,
+) -> ProgressOverviewResponse:
+    """
+    Compose the full action-oriented progress payload for a single roadmap.
+    Completed/skipped steps are returned (hidden by default in the UI) so the
+    Progress page can render collapsed history without extra round-trips.
+    """
+    select_current_step(db, path)
+    nodes = path_nodes(db, path.id)
+    stats = path_stats(nodes, path.status)
+
+    current = current_step_of(nodes)
+    upcoming = []
+    for n in nodes:
+        if n.id == (current.id if current else None):
+            continue
+        if n.status in ("available", "in_progress"):
+            upcoming.append(n)
+        if len(upcoming) >= 6:
+            break
+
+    completed = [n for n in nodes if n.status == "completed"]
+    skipped = [n for n in nodes if n.status == "skipped"]
+
+    streak = db.query(UserStreak).filter(UserStreak.user_id == user_id).first()
+    streak_resp = StreakResponse(
+        current_streak=streak.current_streak if streak else 0,
+        longest_streak=streak.longest_streak if streak else 0,
+        last_activity_date=(
+            streak.last_activity_date.isoformat() if streak and streak.last_activity_date else None
+        ),
+        weekly_activity=_build_weekly_activity(db, user_id),
+    )
+
+    adaptations = (
+        db.query(AdaptationEvent)
+        .filter(AdaptationEvent.user_id == user_id, AdaptationEvent.path_id == path.id)
+        .order_by(AdaptationEvent.created_at.desc())
+        .limit(3)
+        .all()
+    )
+
+    return ProgressOverviewResponse(
+        path_id=path.id,
+        target_role=path.target_role,
+        role_label=role_label_for(path.target_role),
+        path_completed=stats["complete"],
+        overall_progress=stats["overall_progress"],
+        current_milestone=current.milestone_number if current else (
+            stats["total_milestones"] if stats["complete"] else 0
+        ),
+        current_milestone_title=milestone_title_for(
+            current.milestone_number if current else stats["total_milestones"]
+        ),
+        current_step=build_node_response(current) if current else None,
+        upcoming_steps=build_node_list(upcoming),
+        completed_count=len(completed),
+        completed_steps=build_node_list(completed),
+        skipped_count=len(skipped),
+        skipped_steps=build_node_list(skipped),
+        total_steps=stats["total_steps"],
+        estimated_completion=(
+            path.estimated_completion_date.strftime("%Y-%m-%d")
+            if path.estimated_completion_date
+            else None
+        ),
+        streak=streak_resp,
+        recent_adaptations=[
+            {
+                "trigger": a.trigger,
+                "explanation": a.explanation,
+                "created_at": a.created_at.isoformat() if a.created_at else "",
+            }
+            for a in adaptations
+        ],
+    )

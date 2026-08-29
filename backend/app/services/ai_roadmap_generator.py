@@ -1041,6 +1041,120 @@ FALLBACK_ROADMAPS: dict[str, dict] = {
             },
         ],
     },
+    "fullstack": {
+        "goal": "Full Stack Developer",
+        "milestones": [
+            {
+                "number": 1,
+                "title": "Frontend Foundations",
+                "description": "HTML, CSS and modern JavaScript for the client side",
+                "steps": [
+                    _make_step(
+                        "fs_html_css",
+                        "HTML & CSS Foundations",
+                        "Semantic markup, Flexbox, Grid, responsive design and modern CSS",
+                        14,
+                        ["HTML", "CSS", "Responsive Design"],
+                        [
+                            _make_resource("HTML & CSS Full Course", "youtube", _yt_url("html css responsive web design tutorial"), "YouTube"),
+                            _make_resource("HTML & CSS Basics", "article", _w3_url("html", "intro"), "W3Schools"),
+                        ],
+                    ),
+                    _make_step(
+                        "fs_javascript",
+                        "JavaScript & DOM",
+                        "ES6+, functions, promises, DOM manipulation and browser APIs",
+                        18,
+                        ["JavaScript", "DOM", "ES6+"],
+                        [
+                            _make_resource("JavaScript Full Course", "youtube", _yt_url("javascript es6 full course beginners"), "YouTube"),
+                            _make_resource("JavaScript Essentials", "article", _w3_url("js", "js_intro"), "W3Schools"),
+                        ],
+                    ),
+                    _make_step(
+                        "fs_react",
+                        "React & State Management",
+                        "Components, hooks, routing and state with Redux/Zustand",
+                        16,
+                        ["React", "State Management", "Hooks"],
+                        [
+                            _make_resource("React for Beginners", "youtube", _yt_url("react state management router tutorial"), "YouTube"),
+                            _make_resource("React Guide", "article", _gfg_url("react-js-introduction"), "GeeksforGeeks"),
+                        ],
+                    ),
+                ],
+            },
+            {
+                "number": 2,
+                "title": "Backend Engineering",
+                "description": "Build robust server-side APIs, databases and authentication",
+                "steps": [
+                    _make_step(
+                        "fs_backend_api",
+                        "REST API Development",
+                        "HTTP, routing, serialization, validation and error handling",
+                        16,
+                        ["REST APIs", "HTTP", "FastAPI"],
+                        [
+                            _make_resource("Backend API Development", "youtube", _yt_url("rest api python fastapi nodejs tutorial"), "YouTube"),
+                            _make_resource("REST API Basics", "article", _gfg_url("rest-api-introduction"), "GeeksforGeeks"),
+                        ],
+                    ),
+                    _make_step(
+                        "fs_database",
+                        "Databases & ORMs",
+                        "SQL, schema design, migrations and object-relational mapping",
+                        14,
+                        ["SQL", "Database Design", "ORM"],
+                        [
+                            _make_resource("SQL & Databases Full Course", "youtube", _yt_url("sql relational database design tutorial"), "YouTube"),
+                            _make_resource("Database Design Guide", "article", _gfg_url("database-design"), "GeeksforGeeks"),
+                        ],
+                    ),
+                    _make_step(
+                        "fs_auth_security",
+                        "Authentication & Security",
+                        "JWT, OAuth, password hashing and securing APIs",
+                        12,
+                        ["Authentication", "JWT", "Security"],
+                        [
+                            _make_resource("Authentication & Security", "youtube", _yt_url("jwt oauth authentication tutorial"), "YouTube"),
+                            _make_resource("API Security Guide", "article", _gfg_url("web-application-security"), "GeeksforGeeks"),
+                        ],
+                    ),
+                ],
+            },
+            {
+                "number": 3,
+                "title": "Full Stack Integration & Deployment",
+                "description": "Connect front and back end, test, and ship to production",
+                "steps": [
+                    _make_step(
+                        "fs_integration",
+                        "Frontend-Backend Integration",
+                        "Consume APIs from React, handle loading/error states and CORS",
+                        12,
+                        ["REST APIs", "React", "CORS"],
+                        [
+                            _make_resource("Connect React to Backend API", "youtube", _yt_url("react consume rest api full stack tutorial"), "YouTube"),
+                            _make_resource("Full Stack Integration Guide", "article", _gfg_url("full-stack-development"), "GeeksforGeeks"),
+                        ],
+                    ),
+                    _make_step(
+                        "fs_deploy",
+                        "Testing & Deployment",
+                        "Unit/integration tests, Docker, CI/CD and hosting",
+                        14,
+                        ["Testing", "Docker", "Deployment"],
+                        [
+                            _make_resource("Full Stack Deployment", "youtube", _yt_url("docker ci cd full stack deployment tutorial"), "YouTube"),
+                            _make_resource("Deployment Guide", "article", _gfg_url("how-to-deploy-a-web-application"), "GeeksforGeeks"),
+                        ],
+                    ),
+                ],
+            },
+        ],
+    },
     "ml_engineer": {
         "goal": "Machine Learning Engineer",
         "milestones": [
@@ -1159,6 +1273,12 @@ _DOMAIN_ALIASES: dict[str, str] = {
     "frontend engineer": "frontend",
     "web developer": "frontend",
     "web development": "frontend",
+    # Full stack
+    "full stack": "fullstack",
+    "fullstack": "fullstack",
+    "full stack developer": "fullstack",
+    "fullstack developer": "fullstack",
+    "full stack web": "fullstack",
     # UI/UX
     "ui/ux designer": "uiux",
     "ui/ux design": "uiux",
@@ -1191,6 +1311,11 @@ _DOMAIN_ALIASES: dict[str, str] = {
     "android developer": "android",
     "android development": "android",
     "mobile android": "android",
+    # Mobile app
+    "mobile app": "flutter",
+    "mobile app developer": "flutter",
+    "mobile application": "flutter",
+    "mobile developer": "flutter",
     # Game
     "game": "game_development",
     "game dev": "game_development",

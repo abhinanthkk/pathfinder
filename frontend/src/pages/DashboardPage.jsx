@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import PropTypes from 'prop-types'
 import {
   LayoutDashboard, Map, ArrowRight, Sparkles, CheckCircle2,
-  Flame, Trophy, TrendingUp, BookOpen, Target, Check, SkipForward,
-  ChevronDown, ChevronRight, XCircle, History,
+  Flame, Trophy, TrendingUp, BookOpen, Target, Award,
 } from 'lucide-react'
 import { AppShell } from '../components/layout/AppShell'
 import { PageHeader } from '../components/shared/PageHeader'
@@ -12,9 +11,9 @@ import { Button } from '../components/ui/Button'
 import { SkeletonCard } from '../components/ui/Skeleton'
 import { ErrorState } from '../components/ui/ErrorState'
 import { EmptyState } from '../components/ui/EmptyState'
+import { RoadmapSwitcher } from '../components/roles/RoadmapSwitcher'
 import api from '../services/api'
 import useGoalsStore from '../store/useGoalsStore'
-import { useToast } from '../context/ToastContext'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -24,8 +23,7 @@ function StreakWidget({ streak }) {
   const weekly = streak?.weekly_activity || []
   const slots = DAY_LABELS.map((day, i) => ({ day, active: weekly[i]?.active ?? false }))
 
-  return (
-    <div className="rounded-[8px] border border-surface-800 bg-surface-900/60 p-5">
+  return (    <div className="rounded-[8px] border border-surface-800 bg-surface-900/60 p-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <span className="text-2xl" role="img" aria-label="fire">🔥</span>
@@ -63,6 +61,7 @@ function StreakWidget({ streak }) {
     </div>
   )
 }
+
 StreakWidget.propTypes = {
   streak: PropTypes.shape({
     current_streak: PropTypes.number,
@@ -71,101 +70,34 @@ StreakWidget.propTypes = {
   }),
 }
 
-function ProgressBar({ label, value, max, colorClass }) {
+function ProgressBar({ label, value, max }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0
   return (
     <div>
       <div className="mb-1 flex items-center justify-between font-mono text-[10px]">
-        <span className="text-surface-400 truncate">{label}</span>
-        <span className="text-primary-400 font-bold ml-2">{pct}%</span>
+        <span className="truncate text-surface-400">{label}</span>
+        <span className="ml-2 font-bold text-primary-400">{pct}%</span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-800">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${colorClass || 'bg-primary-400'}`}
-          style={{ width: `${pct}%` }}
-        />
+        <div className="h-full rounded-full bg-primary-400 transition-all duration-500" style={{ width: `${pct}%` }} />
       </div>
     </div>
   )
 }
+
 ProgressBar.propTypes = {
   label: PropTypes.string,
   value: PropTypes.number,
   max: PropTypes.number,
-  colorClass: PropTypes.string,
-}
-
-function HistorySection({ icon, title, count, steps, expanded, onToggle, accent }) {
-  const Icon = icon
-  return (
-    <div className="rounded-[8px] border border-surface-800 bg-surface-900/50">
-      <button
-        onClick={onToggle}
-        className={`flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition-colors hover:bg-surface-900/80 ${accent || ''}`}
-        aria-expanded={expanded}
-      >
-        <div className="flex items-center gap-2.5">
-          <Icon className="h-4 w-4 text-surface-500" aria-hidden="true" />
-          <span className="font-mono text-[10px] uppercase tracking-widest text-surface-400">
-            {title}
-          </span>
-          <span className="rounded-[3px] border border-surface-700 bg-surface-900 px-1.5 py-0.5 font-mono text-[10px] text-surface-400">
-            {count}
-          </span>
-        </div>
-        {expanded ? (
-          <ChevronDown className="h-4 w-4 text-surface-500" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-surface-500" />
-        )}
-      </button>
-      {expanded && count > 0 && (
-        <div className="border-t border-surface-800 px-5 py-3">
-          <ul className="space-y-2">
-            {steps.map((s) => (
-              <li
-                key={s.node_id}
-                className="flex items-start justify-between gap-3 text-xs rounded-[6px] border border-surface-800 bg-surface-950/50 px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-surface-200">{s.title}</p>
-                  <p className="mt-0.5 font-mono text-[10px] text-surface-500">
-                    M{s.milestone}·{s.order} · ~{s.estimated_hours}h
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {expanded && count === 0 && (
-        <div className="border-t border-surface-800 px-5 py-3 font-mono text-[10px] text-surface-500">
-          Nothing here yet.
-        </div>
-      )}
-    </div>
-  )
-}
-HistorySection.propTypes = {
-  icon: PropTypes.elementType,
-  title: PropTypes.string.isRequired,
-  count: PropTypes.number.isRequired,
-  steps: PropTypes.array.isRequired,
-  expanded: PropTypes.bool.isRequired,
-  onToggle: PropTypes.func.isRequired,
-  accent: PropTypes.string,
 }
 
 export default function DashboardPage() {
   const navigate = useNavigate()
-  const toast = useToast()
   const activePathId = useGoalsStore((s) => s.activePathId)
 
   const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [actingStep, setActingStep] = useState(null)
-  const [historyOpen, setHistoryOpen] = useState({ completed: false, skipped: false })
 
   const loadDashboard = useCallback(async () => {
     setLoading(true)
@@ -185,7 +117,6 @@ export default function DashboardPage() {
   }, [loadDashboard])
 
   useEffect(() => {
-    // keep the goals/roles counts fresh when this page mounts
     useGoalsStore.getState().fetchGoals()
   }, [])
 
@@ -196,57 +127,23 @@ export default function DashboardPage() {
   const milestoneBreakdown = dashboard?.milestone_breakdown || []
   const hasAdaptations = (dashboard?.recent_adaptations || []).length > 0
   const currentStep = dashboard?.current_step || null
-  const upcomingSteps = dashboard?.upcoming_steps || []
-  const upcomingMilestones = dashboard?.upcoming_milestones || []
-  const completedSteps = dashboard?.completed_steps || []
-  const skippedSteps = dashboard?.skipped_steps || []
   const totalSteps = dashboard?.total_steps || 0
-  const completedCount = dashboard?.completed_count ?? completedSteps.length
-
-  const handleComplete = async () => {
-    if (!currentStep || !activePathId) return
-    setActingStep('complete')
-    try {
-      await api.completeStep(activePathId, currentStep.node_id)
-      toast.success(`${currentStep.title} marked complete!`)
-      await loadDashboard()
-      useGoalsStore.getState().fetchGoals()
-    } catch {
-      toast.error('Failed to update progress.')
-    } finally {
-      setActingStep(null)
-    }
-  }
-
-  const handleSkip = async () => {
-    if (!currentStep || !activePathId) return
-    setActingStep('skip')
-    try {
-      await api.skipStep(activePathId, currentStep.node_id)
-      toast.info('Step skipped.')
-      await loadDashboard()
-      useGoalsStore.getState().fetchGoals()
-    } catch {
-      toast.error('Failed to skip step.')
-    } finally {
-      setActingStep(null)
-    }
-  }
-
-  const toggleHistory = (key) =>
-    setHistoryOpen((prev) => ({ ...prev, [key]: !prev[key] }))
+  const completedCount = dashboard?.completed_count ?? 0
+  const currentMilestoneTitle = dashboard?.milestone_breakdown?.find(
+    (m) => m.number === dashboard?.current_milestone
+  )?.title
 
   return (
     <AppShell>
       <PageHeader
         tag="PATHFINDER / OVERVIEW"
         icon={LayoutDashboard}
-        title="WORKSPACE OVERVIEW"
-        description="Unified telemetry across your active learning graph, milestones, and skill acquisitions."
+        title="DASHBOARD"
+        description="High-level overview of your active learning path: progress, streak, current module, and what to do next."
         actions={
-          <Button onClick={() => navigate('/roadmap')} className="font-mono text-xs">
-            <Map className="h-3.5 w-3.5" aria-hidden="true" />
-            OPEN ROADMAP
+          <Button onClick={() => navigate('/progress')} className="font-mono text-xs">
+            <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" />
+            OPEN PROGRESS
           </Button>
         }
       />
@@ -260,10 +157,12 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {error && <ErrorState title="Telemetry Unavailable" description={error} onRetry={loadDashboard} />}
+        {error && <ErrorState title="Overview Unavailable" description={error} onRetry={loadDashboard} />}
 
         {!loading && !error && dashboard && (
           <>
+            <RoadmapSwitcher />
+
             {/* Active role + progress banner */}
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-primary-400/30 bg-primary-400/5 px-5 py-4">
               <div className="flex min-w-0 items-center gap-3">
@@ -271,7 +170,7 @@ export default function DashboardPage() {
                   {(dashboard.role_label || '?').charAt(0).toUpperCase()}
                 </span>
                 <div className="min-w-0">
-                  <p className="font-mono text-[10px] uppercase tracking-widest text-surface-500">ACTIVE LEARNING ROLE</p>
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-surface-500">CURRENT ACTIVE ROADMAP</p>
                   <p className="truncate text-sm font-semibold text-white">{dashboard.role_label || '—'}</p>
                 </div>
               </div>
@@ -281,16 +180,14 @@ export default function DashboardPage() {
                     <CheckCircle2 className="h-3 w-3" /> PATH COMPLETED
                   </span>
                 )}
-                <span className="font-mono text-xs text-surface-300">
-                  {progressPercent}%
-                </span>
-                <Button onClick={() => navigate('/roadmap')} variant="outline" size="sm" className="font-mono text-[10px]">
-                  View Roadmap
+                <span className="font-mono text-xs text-surface-300">{progressPercent}%</span>
+                <Button onClick={() => navigate('/progress')} variant="outline" size="sm" className="font-mono text-[10px]">
+                  View Full Roadmap
                 </Button>
               </div>
             </div>
 
-            {/* Top row: streak + overall progress + next action */}
+            {/* Top row: streak + overall progress + current module */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               {streak && <StreakWidget streak={streak} />}
 
@@ -303,23 +200,19 @@ export default function DashboardPage() {
                 <div className="mt-3 flex items-end justify-between">
                   <div>
                     <p className="text-3xl font-bold text-white">{progressPercent}%</p>
-                    <p className="font-mono text-[11px] text-surface-400 mt-0.5">
-                      {completedCount} / {totalSteps} steps
+                    <p className="mt-0.5 font-mono text-[11px] text-surface-400">
+                      {completedCount} / {totalSteps} steps completed
                     </p>
                   </div>
                   <div className="text-right font-mono text-[10px] text-surface-500">
-                    <p>{dashboard.milestones_completed || 0}/{dashboard.total_milestones || 0}</p>
-                    <p>MILESTONES</p>
+                    <p>{dashboard.milestones_completed || 0}/{dashboard.total_milestones || 0} MILESTONES</p>
                     {dashboard.skipped_count > 0 && (
                       <p className="mt-1 text-surface-600">{dashboard.skipped_count} skipped</p>
                     )}
                   </div>
                 </div>
                 <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-surface-800">
-                  <div
-                    className="h-full rounded-full bg-primary-400 transition-all duration-700"
-                    style={{ width: `${progressPercent}%` }}
-                  />
+                  <div className="h-full rounded-full bg-primary-400 transition-all duration-700" style={{ width: `${progressPercent}%` }} />
                 </div>
                 {dashboard.estimated_completion && (
                   <p className="mt-2 font-mono text-[10px] text-surface-500">
@@ -328,175 +221,49 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Next action */}
+              {/* Current module */}
               <div className="rounded-[8px] border border-surface-800 bg-surface-900/60 p-5">
                 <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-primary-400">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  &gt; NEXT ACTION
+                  <Target className="h-3.5 w-3.5" />
+                  &gt; CURRENT MODULE
                 </div>
-                {dashboard.next_action ? (
+                {currentStep ? (
                   <div className="mt-3">
-                    <p className="text-sm font-semibold text-white leading-snug">
-                      {dashboard.next_action.title}
+                    <p className="text-sm font-semibold text-white leading-snug">{currentStep.title}</p>
+                    <p className="mt-1.5 font-mono text-[10px] text-surface-500">
+                      Milestone {currentStep.milestone} • {currentMilestoneTitle || `Milestone ${currentStep.milestone}`}
                     </p>
-                    <p className="mt-1.5 text-xs text-surface-400 leading-relaxed line-clamp-2">
-                      {dashboard.next_action.reason}
+                    <p className="mt-1 font-mono text-[10px] text-surface-500">
+                      Step {currentStep.order} · ~{currentStep.estimated_hours || '?'}h estimated
                     </p>
-                    {dashboard.next_action.estimated_hours && (
-                      <p className="mt-1 font-mono text-[10px] text-surface-500">
-                        ~{dashboard.next_action.estimated_hours}h estimated
-                      </p>
-                    )}
-                    <button
-                      onClick={() => navigate('/roadmap')}
-                      className="mt-4 flex w-full items-center justify-center gap-2 rounded-[6px] border border-primary-400/40 bg-primary-400/10 py-2 font-mono text-xs font-medium text-primary-400 transition-all hover:bg-primary-400/20"
-                    >
-                      Continue Learning <ArrowRight className="h-3.5 w-3.5" />
-                    </button>
                   </div>
                 ) : (
-                  <div className="mt-4 py-2">
-                    <EmptyState
-                      icon={Map}
-                      title="No active step"
-                      description="Set up your profile to generate a roadmap."
-                      action={
-                        <Button onClick={() => navigate('/onboarding')} className="font-mono text-xs" size="sm">
-                          Set Up Profile
-                        </Button>
-                      }
-                    />
+                  <div className="mt-3 text-sm text-surface-400">
+                    {dashboard.path_completed ? 'Roadmap complete — great work!' : 'No active module yet.'}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Current step ↑ | Continue below */}
-            {currentStep && (
-              <div className="rounded-[8px] border border-primary-400/50 bg-surface-900/60 p-5 shadow-[0_0_24px_rgba(250,204,21,0.06)]">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-primary-400">
-                      <Target className="h-3.5 w-3.5" />
-                      &gt; CURRENT STEP
-                      <span className="rounded-[3px] bg-primary-400 px-1.5 py-0.5 font-mono text-[9px] text-black font-bold">
-                        MILESTONE {String(currentStep.milestone).padStart(2, '0')}
-                      </span>
-                    </div>
-                    <h2 className="mt-2 text-lg font-semibold text-white leading-snug">{currentStep.title}</h2>
-                    {currentStep.description && (
-                      <p className="mt-1 text-xs text-surface-400 leading-relaxed line-clamp-2">{currentStep.description}</p>
-                    )}
-                    <p className="mt-2 font-mono text-[10px] text-surface-500">
-                      ~{currentStep.estimated_hours}h · step {currentStep.order} of {dashboard.upcoming_milestones?.[0]?.total_steps || totalSteps}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-                    <Button
-                      onClick={handleComplete}
-                      loading={actingStep === 'complete'}
-                      className="font-mono text-xs"
-                    >
-                      <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                      Mark Complete
-                    </Button>
-                    <Button
-                      onClick={handleSkip}
-                      loading={actingStep === 'skip'}
-                      variant="secondary"
-                      className="font-mono text-xs"
-                    >
-                      <SkipForward className="h-3.5 w-3.5" aria-hidden="true" />
-                      Skip
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Up next */}
-            {upcomingSteps.length > 0 && (
-              <div className="rounded-[8px] border border-surface-800 bg-surface-900/50 p-5">
-                <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-primary-400">
-                  <ArrowRight className="h-3.5 w-3.5" />
-                  &gt; UP NEXT
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {upcomingSteps.slice(0, 4).map((s) => (
-                    <div
-                      key={s.node_id}
-                      className="flex items-center justify-between gap-3 rounded-[6px] border border-surface-800 bg-surface-950/50 px-3 py-2.5"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-xs text-surface-200">{s.title}</p>
-                        <p className="mt-0.5 font-mono text-[10px] text-surface-500">
-                          M{s.milestone}·{s.order} · ~{s.estimated_hours}h
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => navigate('/roadmap')}
-                        className="shrink-0 rounded-[4px] border border-surface-700 px-2 py-1 font-mono text-[10px] text-surface-300 transition-all hover:border-primary-400/50 hover:text-primary-400"
-                      >
-                        View
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Upcoming milestones */}
-            {upcomingMilestones.filter((m) => !m.all_done).length > 0 && (
-              <div className="rounded-[8px] border border-surface-800 bg-surface-900/50 p-5">
-                <div className="mb-3 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-primary-400">
-                  <Target className="h-3.5 w-3.5" />
-                  &gt; UPCOMING MILESTONES
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {upcomingMilestones.filter((m) => !m.all_done).map((m) => (
-                    <div
-                      key={m.number}
-                      className="min-w-[180px] rounded-[6px] border border-surface-800 bg-surface-950/50 px-3.5 py-2.5"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="truncate font-mono text-[10px] text-surface-200">
-                          {String(m.number).padStart(2, '0')}. {m.title}
-                        </span>
-                        <span className="shrink-0 font-mono text-[10px] text-surface-500">
-                          {m.completed_steps}/{m.total_steps}
-                        </span>
-                      </div>
-                      <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-surface-800">
-                        <div
-                          className="h-full rounded-full bg-primary-400/70"
-                          style={{ width: `${m.progress_percentage ?? 0}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Milestone progress bars */}
+            {/* Milestone overview (compact) */}
             {milestoneBreakdown.length > 0 && (
               <div className="rounded-[8px] border border-surface-800 bg-surface-900/50 p-5">
                 <div className="mb-4 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-primary-400">
                   <Target className="h-3.5 w-3.5" />
-                  &gt; MILESTONE PROGRESS
+                  &gt; MILESTONE OVERVIEW
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {milestoneBreakdown.map((m) => (
-                    <div key={m.number} className="space-y-1.5">
+                    <div key={m.number} className="space-y-1">
                       <div className="flex items-center justify-between font-mono text-[10px]">
-                        <span className="text-surface-300 truncate">
+                        <span className="truncate text-surface-300">
                           {String(m.number).padStart(2, '0')}. {m.title}
                         </span>
-                        <span className={`ml-2 shrink-0 ${m.completed_steps === m.total_steps ? 'text-emerald-400' : 'text-surface-500'}`}>
-                          {m.completed_steps}/{m.total_steps}
+                        <span className={`ml-2 shrink-0 ${m.completed_steps === m.total_steps ? 'text-emerald-400' : 'text-primary-400'}`}>
+                          {m.progress_percentage ?? 0}%
                         </span>
                       </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-800">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-surface-800">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${
                             m.completed_steps === m.total_steps ? 'bg-emerald-400' : 'bg-primary-400'
@@ -510,8 +277,35 @@ export default function DashboardPage() {
               </div>
             )}
 
+            {/* Next recommended action */}
+            <div className="rounded-[8px] border border-surface-800 bg-surface-900/60 p-5">
+              <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-primary-400">
+                <Sparkles className="h-3.5 w-3.5" />
+                &gt; NEXT UP
+              </div>
+              {dashboard.next_action ? (
+                <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white leading-snug">{dashboard.next_action.title}</p>
+                    <p className="mt-1.5 text-xs text-surface-400 leading-relaxed">{dashboard.next_action.reason}</p>
+                    {dashboard.next_action.estimated_hours && (
+                      <p className="mt-1 font-mono text-[10px] text-surface-500">~{dashboard.next_action.estimated_hours}h estimated</p>
+                    )}
+                  </div>
+                  <Button
+                    onClick={() => navigate('/progress')}
+                    className="shrink-0 font-mono text-xs"
+                  >
+                    Continue Learning <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="mt-3 text-sm text-surface-400">No recommended action right now.</div>
+              )}
+            </div>
+
             {/* Skills + Badges */}
-            <div id="progress" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {/* Skill progress */}
               <div className="rounded-[8px] border border-surface-800 bg-surface-900/50 p-5">
                 <div className="mb-4 flex items-center gap-2 border-b border-surface-800 pb-3 font-mono text-[10px] uppercase tracking-widest text-primary-400">
@@ -551,11 +345,9 @@ export default function DashboardPage() {
                           {badge.icon || '🏅'}
                         </span>
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold text-white truncate">{badge.badge_name}</p>
+                          <p className="truncate text-xs font-semibold text-white">{badge.badge_name}</p>
                           {badge.earned_at && (
-                            <p className="font-mono text-[10px] text-surface-500 mt-0.5">
-                              {badge.earned_at.split('T')[0]}
-                            </p>
+                            <p className="mt-0.5 font-mono text-[10px] text-surface-500">{badge.earned_at.split('T')[0]}</p>
                           )}
                         </div>
                       </div>
@@ -567,36 +359,12 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Collapsed history: completed / skipped (role-scoped) */}
-            {(completedCount > 0 || skippedSteps.length > 0) && (
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <HistorySection
-                  icon={CheckCircle2}
-                  title="VIEW PREVIOUSLY COMPLETED"
-                  count={completedCount}
-                  steps={completedSteps}
-                  expanded={historyOpen.completed}
-                  onToggle={() => toggleHistory('completed')}
-                  accent="hover:border-emerald-500/20"
-                />
-                <HistorySection
-                  icon={XCircle}
-                  title="VIEW SKIPPED"
-                  count={skippedSteps.length}
-                  steps={skippedSteps}
-                  expanded={historyOpen.skipped}
-                  onToggle={() => toggleHistory('skipped')}
-                  accent="hover:border-surface-700"
-                />
-              </div>
-            )}
-
-            {/* Adaptation log */}
+            {/* Recent adaptation/activity */}
             {hasAdaptations && (
               <div className="rounded-[8px] border border-surface-800 bg-surface-900/50 p-5">
                 <div className="mb-4 flex items-center gap-2 border-b border-surface-800 pb-3 font-mono text-[10px] uppercase tracking-widest text-primary-400">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  &gt; RECENT ADAPTATIONS
+                  <Award className="h-3.5 w-3.5" />
+                  &gt; RECENT ACTIVITY
                 </div>
                 <ul className="space-y-2.5">
                   {dashboard.recent_adaptations.map((a, i) => (
@@ -618,12 +386,24 @@ export default function DashboardPage() {
                 </ul>
               </div>
             )}
+
+            {/* View full roadmap footer CTA */}
+            <div className="flex items-center justify-between rounded-[8px] border border-surface-800 bg-surface-900/50 px-5 py-4">
+              <div>
+                <p className="text-sm font-semibold text-white">See your full learning journey</p>
+                <p className="mt-0.5 font-mono text-[10px] text-surface-500">Every milestone, every step, end to end.</p>
+              </div>
+              <Button onClick={() => navigate('/roadmap')} variant="outline" className="font-mono text-xs">
+                <Map className="h-3.5 w-3.5" aria-hidden="true" />
+                View Roadmap
+              </Button>
+            </div>
           </>
         )}
 
         {!loading && !error && !dashboard && (
           <EmptyState
-            icon={History}
+            icon={Map}
             title="No workspace yet"
             description="Set up your learning profile to see your dashboard."
             action={

@@ -1,24 +1,49 @@
 import asyncio
+import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger("pathfinder.progress")
 
 from app.models.database import get_db, SessionLocal
 from app.models.models import (
     LearnerProfile, UserSkill, LearningPath, PathNode,
     ProgressEvent, AdaptationEvent,
 )
-from app.schemas.profile import ProgressRequest, ProgressResponse, PathNodeResponse, SkillChange
+from app.schemas.profile import ProgressRequest, ProgressResponse, PathNodeResponse, SkillChange, ProgressOverviewResponse
 from app.services.skill_graph import get_skill_graph
 from app.services.llm_service import generate_adaptation_explanation
 from app.core.auth import get_current_user
 from app.models.models import User
 from app.services.progression import (
     get_active_path, find_node, mark_step_complete, mark_step_skipped,
-    build_node_response,
+    build_node_response, build_progress_overview,
 )
 
 router = APIRouter(tags=["progress"])
+
+
+@router.get("/paths/{path_id}/progress", response_model=ProgressOverviewResponse)
+def get_path_progress(
+    path_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Action-oriented progress payload for a single roadmap."""
+    path = get_active_path(db, current_user.id, path_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="Learning path not found.")
+    try:
+        return build_progress_overview(db, current_user.id, path)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Failed to build progress overview for path %s", path_id)
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to build progress for this roadmap right now.",
+        ) from exc
 
 
 @router.post("/paths/{path_id}/steps/{node_id}/complete", response_model=ProgressResponse)

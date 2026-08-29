@@ -372,7 +372,10 @@ async def create_or_update_goal(db: Session, user: User, data: GoalCreate) -> tu
 def get_goals_summary(db: Session, user_id: str) -> GoalsResponse:
     paths = (
         db.query(LearningPath)
-        .filter(LearningPath.user_id == user_id, LearningPath.status == "active")
+        .filter(
+            LearningPath.user_id == user_id,
+            LearningPath.status.in_(("active", "completed")),
+        )
         .order_by(LearningPath.created_at.asc())
         .all()
     )
@@ -427,8 +430,16 @@ def get_goals_summary(db: Session, user_id: str) -> GoalsResponse:
 def get_onboarding_status(db: Session, user_id: str) -> OnboardingStatusResponse:
     profile = db.query(LearnerProfile).filter(LearnerProfile.user_id == user_id).first()
     onboarding_complete = bool(profile and profile.onboarding_complete)
+    has_any_path = (
+        db.query(LearningPath)
+        .filter(
+            LearningPath.user_id == user_id,
+            LearningPath.status.in_(("active", "completed")),
+        )
+        .first()
+    ) is not None
     count = active_path_count(db, user_id)
-    needs = (not onboarding_complete) or count == 0
+    needs = (not onboarding_complete) or (not has_any_path)
     return OnboardingStatusResponse(
         needs_onboarding=needs,
         onboarding_complete=onboarding_complete,
