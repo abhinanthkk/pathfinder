@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PropTypes from 'prop-types'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Map, RefreshCw, Target, Clock, Check, Lock, SkipForward,
   Play, ChevronDown, ChevronRight, X, Lightbulb, ExternalLink,
@@ -9,6 +10,8 @@ import {
 import { AppShell } from '../components/layout/AppShell'
 import { PageHeader } from '../components/shared/PageHeader'
 import { Button } from '../components/ui/Button'
+import { Card } from '../components/ui/Card'
+import { ProgressBar } from '../components/ui/Progress'
 import { Spinner } from '../components/ui/Spinner'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorState } from '../components/ui/ErrorState'
@@ -18,72 +21,54 @@ import useGoalsStore from '../store/useGoalsStore'
 import { useToast } from '../context/ToastContext'
 import { RoadmapSwitcher } from '../components/roles/RoadmapSwitcher'
 import api from '../services/api'
+import { EASE } from '../lib/motion'
+import { getStepResources, resourceTone, resourceMark } from '../utils/resources'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function getFallbackResources(title) {
-  const query = encodeURIComponent(title + ' tutorial')
-  const gfgQuery = title.toLowerCase().replace(/\s+/g, '-')
-  return [
-    {
-      title: `Watch: ${title}`,
-      type: 'youtube',
-      url: `https://www.youtube.com/results?search_query=${query}`,
-      source: 'YouTube',
-    },
-    {
-      title: 'Read on GeeksforGeeks',
-      type: 'article',
-      url: `https://www.geeksforgeeks.org/${gfgQuery}/`,
-      source: 'GeeksforGeeks',
-    },
-  ]
-}
-
-function getStepResources(step) {
-  if (step.resources && step.resources.length > 0) return step.resources
-  return getFallbackResources(step.title)
-}
 
 function statusMeta(status) {
   switch (status) {
     case 'completed':
-      return { icon: CheckCircle2, label: 'COMPLETED', color: 'text-emerald-400', border: 'border-emerald-500/50', bg: 'bg-emerald-500/5' }
+      return {
+        icon: CheckCircle2,
+        label: 'Completed',
+        color: 'text-emerald-400',
+        border: 'border-emerald-500/40',
+        bg: 'bg-emerald-500/[0.04]',
+      }
     case 'in_progress':
     case 'current':
-      return { icon: Play, label: 'YOU ARE HERE', color: 'text-primary-400', border: 'border-primary-400', bg: 'bg-primary-400/5' }
+      return {
+        icon: Play,
+        label: 'You are here',
+        color: 'text-primary-400',
+        border: 'border-primary-400/50',
+        bg: 'bg-primary-400/[0.05]',
+      }
     case 'skipped':
-      return { icon: SkipForward, label: 'SKIPPED', color: 'text-surface-500', border: 'border-surface-700', bg: 'bg-surface-950/60' }
+      return {
+        icon: SkipForward,
+        label: 'Skipped',
+        color: 'text-surface-500',
+        border: 'border-surface-800',
+        bg: 'bg-surface-950/60',
+      }
     case 'locked':
-      return { icon: Lock, label: 'LOCKED', color: 'text-surface-600', border: 'border-surface-800', bg: 'bg-surface-950/40' }
+      return {
+        icon: Lock,
+        label: 'Locked',
+        color: 'text-surface-600',
+        border: 'border-surface-800',
+        bg: 'bg-surface-950/40',
+      }
     default:
-      return { icon: ChevronRight, label: 'NEXT', color: 'text-surface-300', border: 'border-surface-700', bg: 'bg-surface-900/50' }
-  }
-}
-
-function resourceButtonStyle(source) {
-  switch (source) {
-    case 'YouTube':
-      return 'bg-red-600/15 border-red-500/30 text-red-400 hover:bg-red-600/25 hover:border-red-500/60'
-    case 'GeeksforGeeks':
-      return 'bg-emerald-600/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/25 hover:border-emerald-500/60'
-    case 'W3Schools':
-      return 'bg-blue-600/15 border-blue-500/30 text-blue-400 hover:bg-blue-600/25 hover:border-blue-500/60'
-    default:
-      return 'bg-surface-800/60 border-surface-700 text-surface-300 hover:bg-surface-700/60 hover:border-surface-600'
-  }
-}
-
-function resourceIcon(source) {
-  switch (source) {
-    case 'YouTube':
-      return '▶'
-    case 'GeeksforGeeks':
-      return 'GFG'
-    case 'W3Schools':
-      return 'W3'
-    default:
-      return '📄'
+      return {
+        icon: ChevronRight,
+        label: 'Next',
+        color: 'text-surface-300',
+        border: 'border-surface-700',
+        bg: 'bg-surface-900/50',
+      }
   }
 }
 
@@ -91,8 +76,8 @@ function resourceIcon(source) {
 
 function Arrow() {
   return (
-    <div className="flex justify-center">
-      <div className="w-0.5 h-6 bg-surface-700" />
+    <div className="flex justify-center py-0.5" aria-hidden="true">
+      <div className="w-px h-6 bg-gradient-to-b from-surface-700 to-surface-800" />
     </div>
   )
 }
@@ -104,47 +89,52 @@ function StepNode({ step, onClick }) {
   const Icon = meta.icon
   const isLocked = step.status === 'locked'
   const isSkipped = step.status === 'skipped'
+  const isCurrent = step.status === 'in_progress' || step.status === 'current'
   const resources = getStepResources(step)
 
   return (
-    <button
+    <motion.button
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: EASE }}
       onClick={() => !isLocked && onClick(step)}
       disabled={isLocked}
-      className={`w-full text-left rounded-[8px] border px-4 py-3.5 transition-all ${meta.border} ${meta.bg} ${
-        isLocked ? 'opacity-40 cursor-not-allowed' : 'hover:brightness-110 cursor-pointer'
-      } ${isSkipped ? 'opacity-50' : ''}`}
+      className={`group relative w-full rounded-[12px] border px-4 py-3.5 text-left transition-all ${meta.border} ${meta.bg} ${
+        isLocked ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:-translate-y-0.5 hover:shadow-glow-hover'
+      } ${isSkipped ? 'opacity-55' : ''}`}
+      aria-disabled={isLocked}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          {/* Status label */}
           <div className={`flex items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-wider ${meta.color}`}>
             <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
             <span>{meta.label}</span>
-            {step.status === 'in_progress' || step.status === 'current' ? (
-              <span className="ml-1 rounded-[3px] bg-primary-400 px-1 py-0.5 font-mono text-[9px] text-black font-bold">
-                ACTIVE
+            {isCurrent && (
+              <span className="relative ml-1.5 flex items-center gap-1.5 rounded-full border border-primary-400/40 bg-primary-400/10 px-2 py-0.5 font-mono text-[9px] font-bold text-primary-400">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-400 opacity-70" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary-400" />
+                </span>
+                Active
               </span>
-            ) : null}
+            )}
           </div>
 
-          {/* Title */}
           <h3
-            className={`mt-1 text-sm font-semibold leading-snug ${
-              isSkipped ? 'line-through text-surface-500' : 'text-white'
+            className={`mt-1.5 text-sm font-semibold leading-snug ${
+              isSkipped ? 'text-surface-500 line-through' : 'text-white'
             }`}
           >
             {step.title}
           </h3>
         </div>
 
-        {/* Hours */}
-        <div className="flex shrink-0 items-center gap-1 font-mono text-[10px] text-surface-500">
+        <span className="flex shrink-0 items-center gap-1 font-mono text-[10px] text-surface-500">
           <Clock className="h-3 w-3" aria-hidden="true" />
           <span>{step.estimated_hours || '?'}h</span>
-        </div>
+        </span>
       </div>
 
-      {/* Resource quick icons */}
       {!isLocked && resources.length > 0 && (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
           {resources.slice(0, 3).map((res) => (
@@ -154,16 +144,16 @@ function StepNode({ step, onClick }) {
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className={`inline-flex items-center gap-1 rounded-[4px] border px-2 py-0.5 font-mono text-[10px] transition-all ${resourceButtonStyle(res.source)}`}
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] transition-all ${resourceTone(res.source)}`}
               title={res.title}
             >
-              <span>{resourceIcon(res.source)}</span>
+              <span>{resourceMark(res.source).glyph}</span>
               <span>{res.source}</span>
             </a>
           ))}
         </div>
       )}
-    </button>
+    </motion.button>
   )
 }
 StepNode.propTypes = {
@@ -177,40 +167,38 @@ function MilestoneHeader({ milestone, steps, collapsed, onToggle }) {
   const total = steps.length
   const completed = steps.filter((s) => s.status === 'completed').length
   const allDone = completed === total && total > 0
-  const isCurrent = steps.some(
-    (s) => s.status === 'in_progress' || s.status === 'current'
-  )
+  const isCurrent = steps.some((s) => s.status === 'in_progress' || s.status === 'current')
 
   return (
     <button
       onClick={onToggle}
-      className={`w-full rounded-[8px] border px-5 py-4 transition-all text-left ${
+      className={`group w-full rounded-[12px] border px-5 py-4 text-left transition-all ${
         allDone
-          ? 'border-emerald-500/40 bg-emerald-500/5'
+          ? 'border-emerald-500/30 bg-emerald-500/[0.04]'
           : isCurrent
-          ? 'border-primary-400/60 bg-primary-400/5 shadow-[0_0_20px_rgba(250,204,21,0.06)]'
-          : 'border-surface-700 bg-surface-900/70 hover:border-surface-600'
+            ? 'border-primary-400/50 bg-primary-400/[0.05] shadow-glow'
+            : 'border-surface-800 bg-surface-925 hover:border-surface-700'
       }`}
       aria-expanded={!collapsed}
     >
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex min-w-0 items-center gap-3.5">
           <span
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] border font-mono text-xs font-bold ${
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border font-mono text-xs font-bold transition-transform group-hover:scale-105 ${
               allDone
                 ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
                 : isCurrent
-                ? 'border-primary-400/60 bg-primary-400/10 text-primary-400'
-                : 'border-surface-700 bg-surface-850 text-surface-400'
+                  ? 'border-primary-400/60 bg-primary-400/10 text-primary-400'
+                  : 'border-surface-700 bg-surface-900 text-surface-400'
             }`}
           >
             {String(milestone.number).padStart(2, '0')}
           </span>
           <div className="min-w-0">
-            <div className="font-mono text-[10px] uppercase tracking-wider text-surface-500">
-              MILESTONE
+            <div className={`font-mono text-[10px] uppercase tracking-wider ${allDone ? 'text-emerald-400/80' : isCurrent ? 'text-primary-400/80' : 'text-surface-500'}`}>
+              Milestone {String(milestone.number).padStart(2, '0')}
             </div>
-            <div className="text-sm font-semibold text-white truncate">{milestone.title}</div>
+            <div className="truncate text-sm font-semibold text-white">{milestone.title}</div>
           </div>
         </div>
 
@@ -218,9 +206,7 @@ function MilestoneHeader({ milestone, steps, collapsed, onToggle }) {
           <span className="font-mono text-[11px] text-surface-400">
             {completed}/{total} steps
           </span>
-          {allDone && (
-            <span className="font-mono text-xs text-emerald-400">🏆</span>
-          )}
+          {allDone && <span className="font-mono text-xs text-emerald-400" aria-hidden="true">🏆</span>}
           {collapsed ? (
             <ChevronRight className="h-4 w-4 text-surface-500" />
           ) : (
@@ -229,14 +215,8 @@ function MilestoneHeader({ milestone, steps, collapsed, onToggle }) {
         </div>
       </div>
 
-      {/* Mini progress bar */}
-      <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-surface-800">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${
-            allDone ? 'bg-emerald-400' : 'bg-primary-400'
-          }`}
-          style={{ width: `${total > 0 ? (completed / total) * 100 : 0}%` }}
-        />
+      <div className="mt-3">
+        <ProgressBar value={completed} max={total} tone={allDone ? 'emerald' : 'gold'} className="h-1" />
       </div>
     </button>
   )
@@ -251,36 +231,35 @@ MilestoneHeader.propTypes = {
 // ─── Final Project / Completion Node ───────────────────────────────────────────
 
 function FinalProjectNode({ name, reached, onClick }) {
-  if (reached) {
-    return (
-      <button
-        onClick={onClick}
-        className="w-full max-w-xl mx-auto rounded-[8px] border border-emerald-500/50 bg-emerald-500/5 px-6 py-5 text-center transition-all hover:brightness-110 cursor-pointer shadow-[0_0_24px_rgba(16,185,129,0.10)]"
-        aria-label={`Final project: ${name}`}
-      >
-        <div className="flex items-center justify-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-widest text-emerald-400">
-          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>COMPLETED</span>
-        </div>
-        <div className="mt-1.5 text-sm font-semibold text-white">🎓 Final Project</div>
-        <div className="mt-0.5 text-xs text-surface-300">{name}</div>
-      </button>
-    )
-  }
-
   return (
-    <button
+    <motion.button
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: EASE }}
       onClick={onClick}
-      className="w-full max-w-xl mx-auto rounded-[8px] border border-surface-700 bg-surface-900/60 px-6 py-5 text-center transition-all hover:border-surface-500 cursor-pointer"
+      className={`group mx-auto w-full max-w-xl rounded-[12px] border px-6 py-5 text-center transition-all ${
+        reached
+          ? 'border-emerald-500/50 bg-emerald-500/[0.05] hover:-translate-y-0.5 hover:shadow-glow-hover'
+          : 'border-surface-800 bg-surface-925 hover:border-surface-700'
+      }`}
       aria-label={`Final project: ${name}`}
     >
-      <div className="flex items-center justify-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-widest text-surface-500">
-        <Lock className="h-3.5 w-3.5" aria-hidden="true" />
-        <span>LOCKED</span>
+      <div
+        className={`flex items-center justify-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-widest ${
+          reached ? 'text-emerald-400' : 'text-surface-500'
+        }`}
+      >
+        {reached ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> : <Lock className="h-3.5 w-3.5" aria-hidden="true" />}
+        <span>{reached ? 'Completed' : 'Locked'}</span>
       </div>
-      <div className="mt-1.5 text-sm font-semibold text-white">🎓 Final Project</div>
-      <div className="mt-0.5 text-xs text-surface-400">Complete all milestones to unlock</div>
-    </button>
+      <div className="mt-1.5 text-sm font-semibold text-white">
+        <span aria-hidden="true">🎓</span> Final Project
+      </div>
+      <div className={`mt-0.5 text-xs ${reached ? 'text-surface-300' : 'text-surface-500'}`}>{name}</div>
+      {!reached && (
+        <div className="mt-0.5 text-[10px] text-surface-600">Complete all milestones to unlock</div>
+      )}
+    </motion.button>
   )
 }
 FinalProjectNode.propTypes = {
@@ -298,59 +277,60 @@ function DetailPanel({ step, onClose, onMarkComplete, onSkip, onExplain, explain
   const resources = getStepResources(step)
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={`Details: ${step.title}`}>
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+    <div className="fixed inset-0 z-[80] flex justify-end" role="dialog" aria-modal="true" aria-label={`Details: ${step.title}`}>
+      <motion.div
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Panel */}
-      <div className="relative flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-surface-800 bg-surface-950 shadow-2xl">
-        {/* Panel header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-surface-800 bg-surface-950 px-5 py-4">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-wider text-surface-500">STEP DETAILS</p>
-            <h2 className="mt-0.5 text-base font-semibold text-white leading-snug">{step.title}</h2>
+      <motion.div
+        initial={{ x: 420 }}
+        animate={{ x: 0 }}
+        exit={{ x: 420 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 40 }}
+        className="relative flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-surface-800 bg-surface-925 shadow-panel"
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-surface-800/80 bg-surface-925/95 px-5 py-4 backdrop-blur-md">
+          <div className="min-w-0">
+            <p className="section-label text-primary-400">Step details</p>
+            <h2 className="mt-0.5 truncate text-base font-semibold leading-snug text-white">{step.title}</h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded-[6px] p-1.5 text-surface-400 transition-colors hover:bg-surface-800 hover:text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400"
+            className="rounded-[8px] p-1.5 text-surface-400 transition-colors hover:bg-surface-800 hover:text-white focus:outline-none"
             aria-label="Close panel"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
-        <div className="flex-1 space-y-5 px-5 py-5">
-          {/* Status & Hours */}
+        <div className="flex-1 space-y-6 px-5 py-5">
           <div className="flex items-center gap-3">
-            <span className={`flex items-center gap-1.5 rounded-[4px] border px-2.5 py-1 font-mono text-[10px] font-medium uppercase ${meta.border} ${meta.color} bg-transparent`}>
-              <Icon className="h-3 w-3" />
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] font-medium uppercase ${meta.border} ${meta.color}`}>
+              <Icon className="h-3 w-3" aria-hidden="true" />
               {meta.label}
             </span>
             <span className="flex items-center gap-1 font-mono text-xs text-surface-400">
-              <Clock className="h-3 w-3" />
+              <Clock className="h-3 w-3" aria-hidden="true" />
               {step.estimated_hours || '?'} hours estimated
             </span>
           </div>
 
-          {/* Description */}
           {step.description && (
             <p className="text-sm leading-relaxed text-surface-300">{step.description}</p>
           )}
 
-          {/* Skills */}
           {step.skills && step.skills.length > 0 && (
             <div>
-              <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-surface-500">SKILLS COVERED</p>
+              <p className="section-label mb-2 text-surface-500">Skills covered</p>
               <div className="flex flex-wrap gap-1.5">
                 {step.skills.map((skill) => (
-                  <span
-                    key={skill}
-                    className="rounded-[4px] border border-surface-700 bg-surface-900 px-2 py-0.5 font-mono text-[10px] text-surface-300"
-                  >
+                  <span key={skill} className="badge-line font-mono text-[10px]">
                     {skill}
                   </span>
                 ))}
@@ -358,32 +338,36 @@ function DetailPanel({ step, onClose, onMarkComplete, onSkip, onExplain, explain
             </div>
           )}
 
-          {/* Why recommended */}
           <div>
             <button
               onClick={() => onExplain(step)}
-              className="flex w-full items-center gap-2 rounded-[6px] border border-surface-700 bg-surface-900/60 px-4 py-3 text-left transition-all hover:border-primary-400/40 hover:bg-surface-800"
+              className="flex w-full items-center gap-2.5 rounded-[10px] border border-surface-700 bg-surface-900/60 px-4 py-3 text-left transition-all hover:border-primary-400/40 hover:bg-surface-900"
             >
-              <Lightbulb className="h-4 w-4 shrink-0 text-primary-400" aria-hidden="true" />
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] border border-primary-400/25 bg-primary-400/10 text-primary-400">
+                <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
+              </span>
               <span className="font-mono text-xs text-surface-300">Why was this recommended?</span>
             </button>
             {explanation && (
-              <div className="mt-2 rounded-[6px] border border-primary-400/20 bg-primary-400/5 px-4 py-3 text-xs leading-relaxed text-surface-300">
+              <motion.div
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-2 rounded-[10px] border border-primary-400/20 bg-primary-400/[0.05] px-4 py-3 text-xs leading-relaxed text-surface-300"
+              >
                 {explaining ? (
                   <div className="flex items-center gap-2 text-surface-500">
-                    <Spinner size="sm" /> Generating explanation…
+                    <Spinner label="" className="scale-75" /> Generating explanation…
                   </div>
                 ) : (
                   explanation
                 )}
-              </div>
+              </motion.div>
             )}
           </div>
 
-          {/* Prerequisites */}
           {step.prerequisites && step.prerequisites.length > 0 && (
             <div>
-              <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-surface-500">PREREQUISITES</p>
+              <p className="section-label mb-2 text-surface-500">Prerequisites</p>
               <ul className="space-y-1.5">
                 {step.prerequisites.map((prereq) => {
                   const done = typeof prereq === 'object' ? prereq.completed : false
@@ -391,9 +375,9 @@ function DetailPanel({ step, onClose, onMarkComplete, onSkip, onExplain, explain
                   return (
                     <li key={label} className="flex items-center gap-2 text-xs">
                       {done ? (
-                        <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                        <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden="true" />
                       ) : (
-                        <X className="h-3.5 w-3.5 shrink-0 text-red-400" />
+                        <X className="h-3.5 w-3.5 shrink-0 text-red-400" aria-hidden="true" />
                       )}
                       <span className={done ? 'text-surface-400' : 'text-surface-300'}>{label}</span>
                     </li>
@@ -403,9 +387,8 @@ function DetailPanel({ step, onClose, onMarkComplete, onSkip, onExplain, explain
             </div>
           )}
 
-          {/* Resources */}
           <div>
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-surface-500">LEARNING RESOURCES</p>
+            <p className="section-label mb-2 text-surface-500">Learning resources</p>
             <div className="space-y-2">
               {resources.map((res) => (
                 <a
@@ -413,56 +396,48 @@ function DetailPanel({ step, onClose, onMarkComplete, onSkip, onExplain, explain
                   href={res.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`flex items-center justify-between gap-3 rounded-[6px] border px-4 py-2.5 text-xs font-medium transition-all ${resourceButtonStyle(res.source)}`}
+                  className={`flex items-center justify-between gap-3 rounded-[10px] border px-4 py-2.5 text-xs font-medium transition-all ${resourceTone(res.source)}`}
                 >
-                  <span className="flex items-center gap-2">
-                    <span className="font-mono text-sm">{resourceIcon(res.source)}</span>
-                    {res.source === 'YouTube' ? '▶ Watch on YouTube' : res.source === 'GeeksforGeeks' ? 'GeeksforGeeks' : res.source === 'W3Schools' ? 'W3Schools' : res.title}
+                  <span className="flex items-center gap-2.5">
+                    <span className="font-mono text-sm">{resourceMark(res.source).glyph}</span>
+                    {resourceMark(res.source).label}
                   </span>
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
                 </a>
               ))}
-              {/* Official docs fallback */}
               <a
                 href={`https://www.google.com/search?q=${encodeURIComponent(step.title + ' official documentation')}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between gap-3 rounded-[6px] border border-surface-700 bg-surface-800/30 px-4 py-2.5 text-xs font-medium text-surface-300 transition-all hover:bg-surface-700/40 hover:text-white"
+                className="flex items-center justify-between gap-3 rounded-[10px] border border-surface-700 bg-surface-900/40 px-4 py-2.5 text-xs font-medium text-surface-300 transition-all hover:bg-surface-800 hover:text-white"
               >
-                <span className="flex items-center gap-2">
-                  <BookOpen className="h-3.5 w-3.5" />
+                <span className="flex items-center gap-2.5">
+                  <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
                   Official Docs
                 </span>
-                <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
               </a>
             </div>
           </div>
         </div>
 
-        {/* Actions sticky footer */}
-        <div className="sticky bottom-0 border-t border-surface-800 bg-surface-950 px-5 py-4">
+        <div className="sticky bottom-0 border-t border-surface-800/80 bg-surface-925/95 px-5 py-4 backdrop-blur-md">
           <div className="space-y-2">
             {step.status !== 'completed' && (
-              <button
-                onClick={() => onMarkComplete(step)}
-                className="flex w-full items-center justify-center gap-2 rounded-[6px] bg-emerald-500/15 border border-emerald-500/40 py-2.5 font-mono text-xs font-medium text-emerald-400 transition-all hover:bg-emerald-500/25 hover:border-emerald-500/60"
-              >
-                <Check className="h-4 w-4" />
+              <Button onClick={() => onMarkComplete(step)} className="w-full">
+                <Check className="h-4 w-4" aria-hidden="true" />
                 Mark Complete
-              </button>
+              </Button>
             )}
             {step.status !== 'skipped' && step.status !== 'completed' && (
-              <button
-                onClick={() => onSkip(step)}
-                className="flex w-full items-center justify-center gap-2 rounded-[6px] border border-surface-700 bg-surface-900/50 py-2.5 font-mono text-xs font-medium text-surface-400 transition-all hover:bg-surface-800 hover:text-surface-200"
-              >
-                <SkipForward className="h-4 w-4" />
+              <Button onClick={() => onSkip(step)} variant="secondary" className="w-full">
+                <SkipForward className="h-4 w-4" aria-hidden="true" />
                 Skip
-              </button>
+              </Button>
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }
@@ -556,7 +531,7 @@ export default function RoadmapPage() {
       try {
         await api.completeStep(activePathId, step.node_id)
         updateNodeStatus(step.node_id, 'completed')
-        setSelectedStep((prev) => prev ? { ...prev, status: 'completed' } : null)
+        setSelectedStep((prev) => (prev ? { ...prev, status: 'completed' } : null))
         toast.success('Step marked as complete!')
         useGoalsStore.getState().fetchGoals()
         await loadPath()
@@ -571,7 +546,7 @@ export default function RoadmapPage() {
     try {
       await api.skipStep(activePathId, step.node_id)
       updateNodeStatus(step.node_id, 'skipped')
-      setSelectedStep((prev) => prev ? { ...prev, status: 'skipped' } : null)
+      setSelectedStep((prev) => (prev ? { ...prev, status: 'skipped' } : null))
       toast.info('Step skipped.')
       useGoalsStore.getState().fetchGoals()
       await loadPath()
@@ -583,7 +558,7 @@ export default function RoadmapPage() {
   const handleWhyRecommended = async (step) => {
     if (!step?.resource_id) return
     setExplaining(true)
-    setExplanation(' ') // show the box immediately
+    setExplanation(' ')
     try {
       const res = await api.explainRecommendation(step.resource_id)
       setExplanation(res?.explanation || res?.message || 'This step helps build foundational skills for your goal.')
@@ -594,15 +569,14 @@ export default function RoadmapPage() {
     }
   }
 
-  // Build milestone groups from path
   const milestones = path?.milestones || []
 
-  // Summary stats
   const allSteps = milestones.flatMap((m) => m.nodes || [])
   const completedSteps = allSteps.filter((s) => s.status === 'completed').length
   const totalSteps = allSteps.length
   const overallPct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0
-  const goalName = activeGoal?.role_label ||
+  const goalName =
+    activeGoal?.role_label ||
     profile?.goal ||
     profile?.target_role?.replace(/_/g, ' ').toUpperCase() ||
     'YOUR LEARNING PATH'
@@ -611,20 +585,14 @@ export default function RoadmapPage() {
   return (
     <AppShell>
       <div className="space-y-6">
-        {/* Page header */}
         <PageHeader
-          tag="PATHFINDER / ROADMAP"
+          tag="Roadmap"
           icon={Map}
-          title="LEARNING ROADMAP"
+          title="Learning Roadmap"
           description="Your personalized, adaptive learning path toward your goal."
           actions={
-            <Button
-              onClick={handleRegenerate}
-              loading={regenerating}
-              variant="outline"
-              className="font-mono text-xs"
-            >
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+            <Button onClick={handleRegenerate} loading={regenerating} variant="outline">
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
               Regenerate Path
             </Button>
           }
@@ -636,24 +604,14 @@ export default function RoadmapPage() {
           </div>
         )}
 
-        {error && (
-          <ErrorState
-            title="Roadmap Unavailable"
-            description={error}
-            onRetry={loadPath}
-          />
-        )}
+        {error && <ErrorState title="Roadmap unavailable" description={error} onRetry={loadPath} />}
 
         {!loading && !error && milestones.length === 0 && (
           <EmptyState
             icon={Map}
             title="No roadmap generated yet"
             description="Complete your profile to generate a personalized learning roadmap."
-            action={
-              <Button onClick={() => navigate('/onboarding')} className="font-mono text-xs">
-                Set Up Profile
-              </Button>
-            }
+            action={<Button onClick={() => navigate('/onboarding')}>Set Up Profile</Button>}
           />
         )}
 
@@ -662,60 +620,57 @@ export default function RoadmapPage() {
             <RoadmapSwitcher />
 
             {/* Progress summary bar */}
-            <div className="rounded-[8px] border border-surface-800 bg-surface-900/60 px-5 py-4">
+            <Card accent padded>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <Target className="h-4 w-4 shrink-0 text-primary-400" aria-hidden="true" />
-                    <span className="font-mono text-xs font-medium uppercase tracking-wider text-white truncate">
-                      {goalName}
-                    </span>
+                    <span className="truncate text-sm font-semibold text-white">{goalName}</span>
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-3 font-mono text-[11px] text-surface-400">
                     <span>{completedSteps} / {totalSteps} steps completed</span>
                     {estimatedCompletion && (
                       <>
-                        <span className="text-surface-700">·</span>
+                        <span className="text-surface-700" aria-hidden="true">·</span>
                         <span>Est. completion: {estimatedCompletion}</span>
                       </>
                     )}
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
-                  <span className="font-mono text-2xl font-bold text-primary-400">{overallPct}%</span>
+                  <span className="stat-number text-2xl font-bold text-primary-400">{overallPct}%</span>
+                  <p className="font-mono text-[9px] uppercase tracking-wider text-surface-500">complete</p>
                 </div>
               </div>
-              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-surface-800">
-                <div
-                  className="h-full rounded-full bg-primary-400 transition-all duration-700 ease-out"
-                  style={{ width: `${overallPct}%` }}
-                />
+              <div className="mt-3">
+                <ProgressBar value={overallPct} max={100} tone="gold" className="h-2" />
               </div>
-            </div>
+            </Card>
 
-            {/* Goal node */}
+            {/* Journey */}
             <div className="flex flex-col items-center">
-              <div className="w-full max-w-xl mx-auto rounded-[8px] border border-primary-400/60 bg-surface-900 px-6 py-4 text-center shadow-[0_0_20px_rgba(250,204,21,0.08)]">
+              <div className="mx-auto w-full max-w-xl rounded-[12px] border border-primary-400/50 bg-surface-925 px-6 py-4 text-center shadow-glow">
                 <div className="flex items-center justify-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-widest text-primary-400">
                   <Target className="h-3 w-3" aria-hidden="true" />
-                  <span>TARGET OBJECTIVE</span>
+                  Target Objective
                 </div>
-                <div className="mt-1 text-sm font-semibold text-white">🎯 {goalName}</div>
+                <div className="mt-1 text-sm font-semibold text-white">
+                  <span aria-hidden="true">🎯</span> {goalName}
+                </div>
               </div>
 
               <Arrow />
 
-              {/* Milestones */}
               <div className="w-full max-w-xl space-y-0">
                 {milestones.map((milestone, mIdx) => {
                   const milestoneSteps = milestone.nodes || []
                   const isCollapsed = !!collapsedMilestones[milestone.number]
-                  const allDone = milestoneSteps.length > 0 &&
+                  const allDone =
+                    milestoneSteps.length > 0 &&
                     milestoneSteps.every((s) => s.status === 'completed')
 
                   return (
                     <div key={milestone.number || mIdx} className="flex flex-col">
-                      {/* Milestone header */}
                       <MilestoneHeader
                         milestone={milestone}
                         steps={milestoneSteps}
@@ -723,65 +678,75 @@ export default function RoadmapPage() {
                         onToggle={() => toggleMilestone(milestone.number)}
                       />
 
-                      {/* Steps */}
-                      {!isCollapsed && milestoneSteps.length > 0 && (
-                        <div className="ml-4 pl-4 border-l border-surface-800">
-                          {milestoneSteps.map((step, sIdx) => (
-                            <div key={step.node_id || sIdx} className="flex flex-col">
-                              <Arrow />
-                              <StepNode step={step} onClick={handleStepClick} />
+                      <AnimatePresence initial={false}>
+                        {!isCollapsed && milestoneSteps.length > 0 && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.28, ease: EASE }}
+                            className="overflow-hidden"
+                          >
+                            <div className="ml-5 border-l border-surface-800 pl-4">
+                              {milestoneSteps.map((step) => (
+                                <div key={step.node_id}>
+                                  <Arrow />
+                                  <StepNode step={step} onClick={handleStepClick} />
+                                </div>
+                              ))}
+
+                              {allDone && (
+                                <>
+                                  <Arrow />
+                                  <div className="flex items-center justify-center gap-2 rounded-[10px] border border-emerald-500/25 bg-emerald-500/[0.05] py-2.5 font-mono text-xs text-emerald-400">
+                                    <span aria-hidden="true">🏆</span>
+                                    <span>Milestone {String(milestone.number).padStart(2, '0')} complete</span>
+                                  </div>
+                                </>
+                              )}
                             </div>
-                          ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
 
-                          {/* Milestone complete badge */}
-                          {allDone && (
-                            <>
-                              <Arrow />
-                              <div className="flex items-center justify-center gap-2 rounded-[6px] border border-emerald-500/30 bg-emerald-500/5 py-2.5 font-mono text-xs text-emerald-400">
-                                <span>🏆</span>
-                                <span>MILESTONE {String(milestone.number).padStart(2, '0')} COMPLETE</span>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Arrow between milestones */}
                       {mIdx < milestones.length - 1 && <Arrow />}
                     </div>
                   )
                 })}
               </div>
 
-              {/* Final project / completion */}
               <Arrow />
               <FinalProjectNode
                 name={`${goalName} Final Project`}
                 reached={overallPct === 100 && totalSteps > 0}
-                onClick={() => setSelectedStep({
-                  title: `${goalName} Final Project`,
-                  status: overallPct === 100 ? 'completed' : 'locked',
-                  description: 'Synthesize everything you have learned into a final project. This is the capstone that turns your skills into a portfolio-ready artifact.',
-                  estimated_hours: '—',
-                })}
+                onClick={() =>
+                  setSelectedStep({
+                    title: `${goalName} Final Project`,
+                    status: overallPct === 100 ? 'completed' : 'locked',
+                    description:
+                      'Synthesize everything you have learned into a final project. This is the capstone that turns your skills into a portfolio-ready artifact.',
+                    estimated_hours: '—',
+                  })
+                }
               />
             </div>
           </>
         )}
       </div>
 
-      {/* Detail panel */}
-      {selectedStep && (
-        <DetailPanel
-          step={selectedStep}
-          onClose={() => setSelectedStep(null)}
-          onMarkComplete={() => handleMarkComplete(selectedStep)}
-          onSkip={() => handleSkip(selectedStep)}
-          onExplain={() => handleWhyRecommended(selectedStep)}
-          explaining={explaining}
-          explanation={explanation}
-        />
-      )}
+      <AnimatePresence>
+        {selectedStep && (
+          <DetailPanel
+            step={selectedStep}
+            onClose={() => setSelectedStep(null)}
+            onMarkComplete={() => handleMarkComplete(selectedStep)}
+            onSkip={() => handleSkip(selectedStep)}
+            onExplain={() => handleWhyRecommended(selectedStep)}
+            explaining={explaining}
+            explanation={explanation}
+          />
+        )}
+      </AnimatePresence>
     </AppShell>
   )
 }

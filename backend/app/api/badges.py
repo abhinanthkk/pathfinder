@@ -52,6 +52,27 @@ BADGES = {
     },
 }
 
+# Title for each earned milestone badge, mirroring the roadmap's milestone
+# names. Kept local here to avoid importing path_generator (which imports this
+# badge module indirectly through progression).
+_MILESTONE_TITLES = [
+    "Foundations",
+    "Core Concepts",
+    "Specialized Skills",
+    "Integration & Advanced",
+    "Capstone & Mastery",
+]
+
+
+def _milestone_badge_id(milestone_number: int) -> str:
+    return f"milestone_badge_{milestone_number}"
+
+
+def _milestone_badge_title(milestone_number: int) -> str:
+    if 1 <= milestone_number <= len(_MILESTONE_TITLES):
+        return _MILESTONE_TITLES[milestone_number - 1]
+    return f"Milestone {milestone_number}"
+
 
 def _badge_item_from_db(b: UserBadge) -> BadgeItem:
     earned_str = b.earned_at.isoformat() if b.earned_at else ""
@@ -121,6 +142,30 @@ def _award_badge(db: Session, user_id: str, badge_id: str, path_id: str = "") ->
     )
 
 
+def _award_milestone_badge(db: Session, user_id: str, path_id: str, milestone_number: int) -> BadgeItem:
+    """Award the titled badge for a completed milestone (once per path)."""
+    badge_id = _milestone_badge_id(milestone_number)
+    title = _milestone_badge_title(milestone_number)
+    now = datetime.now(timezone.utc)
+    badge = UserBadge(
+        user_id=user_id,
+        badge_id=badge_id,
+        badge_name=title,
+        description=f"Completed the {title} milestone",
+        icon="🏆",
+        path_id=path_id,
+        earned_at=now,
+    )
+    db.add(badge)
+    return BadgeItem(
+        badge_id=badge_id,
+        badge_name=title,
+        description=f"Completed the {title} milestone",
+        icon="🏆",
+        earned_at=now.isoformat(),
+    )
+
+
 def check_and_award_badges(db: Session, user_id: str, path: LearningPath | None = None) -> list[BadgeItem]:
     """
     Evaluate all badge conditions for the user and award any newly earned badges.
@@ -167,6 +212,17 @@ def check_and_award_badges(db: Session, user_id: str, path: LearningPath | None 
         newly_awarded.append(_award_badge(db, user_id, "streak_30"))
 
     # --- Roadmap badges are scoped to the specific learning path ---
+    # --- Badge: one titled badge per completed milestone (awarded once) ---
+    for milestone_number, m_nodes in milestones.items():
+        if not m_nodes:
+            continue
+        all_done = all(n.status in ("completed", "skipped") for n in m_nodes)
+        badge_id = _milestone_badge_id(milestone_number)
+        if path_id and all_done and not _has_badge(db, user_id, badge_id, path_id):
+            newly_awarded.append(
+                _award_milestone_badge(db, user_id, path_id, milestone_number)
+            )
+
     # --- Badge: milestone_1 ---
     if path_id and completed_milestones >= 1 and not _has_badge(db, user_id, "milestone_1", path_id):
         newly_awarded.append(_award_badge(db, user_id, "milestone_1", path_id))

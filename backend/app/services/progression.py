@@ -44,9 +44,6 @@ from app.api.streak import update_streak, _build_weekly_activity
 from app.api.badges import check_and_award_badges
 from app.api.skill_progress import recalculate_skill_progress
 
-# Global cap on active learning roles per user.
-MAX_ACTIVE_PATHS = 2
-
 
 # ---------------------------------------------------------------------------
 # Path selection
@@ -79,7 +76,7 @@ def set_current_path(db: Session, user_id: str, path_id: str) -> LearningPath | 
     """Make `path_id` the active/current role. Returns the path or None.
 
     Active and completed paths may be selected so a finished roadmap can still
-    be viewed. Only 'active' paths count toward the 2-roadmap cap.
+    be viewed.
     """
     all_paths = (
         db.query(LearningPath)
@@ -416,6 +413,7 @@ def mark_step_complete(db: Session, user: User, path: LearningPath, node: PathNo
 
     db.add(ProgressEvent(
         user_id=user.id,
+        path_id=path.id,
         resource_id=node.resource_id,
         old_status=old_status,
         new_status="completed",
@@ -476,6 +474,7 @@ def mark_step_skipped(db: Session, user: User, path: LearningPath, node: PathNod
 
     db.add(ProgressEvent(
         user_id=user.id,
+        path_id=path.id,
         resource_id=node.resource_id,
         old_status=old_status,
         new_status="skipped",

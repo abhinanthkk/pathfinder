@@ -12,6 +12,7 @@ from app.schemas.profile import (
 )
 from app.services.goal_service import (
     create_or_update_goal,
+    delete_learning_path,
     get_goals_summary,
     get_onboarding_status,
 )
@@ -115,3 +116,19 @@ def archive_path(
     db.add(path)
     db.commit()
     return get_goals_summary(db, current_user.id)
+
+
+@router.delete("/paths/{path_id}", response_model=GoalsResponse)
+def delete_path(
+    path_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Permanently remove one learning path and all its scoped data (nodes,
+    progress, skills, badges, adaptation activity).
+
+    The final remaining path can never be deleted — add another path first.
+    Deleted-path detection uses `DELETE` on `/api/paths/{path_id}`.
+    """
+    return delete_learning_path(db, current_user.id, path_id)

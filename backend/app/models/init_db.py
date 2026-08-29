@@ -41,3 +41,5 @@ def init_db():
     _ensure_column("learning_paths", "is_custom", "BOOLEAN DEFAULT 0")
     _ensure_column("skill_progress", "path_id", "VARCHAR DEFAULT ''")
     _ensure_column("user_badges", "path_id", "VARCHAR DEFAULT ''")
+    # Scope progress events to a single learning path
+    _ensure_column("progress_events", "path_id", "VARCHAR DEFAULT ''")

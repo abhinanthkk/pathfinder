@@ -12,8 +12,7 @@ export function Spinner({ label = 'Loading…', className = '' }) {
         className="h-6 w-6 animate-spin rounded-full border-2 border-surface-700 border-t-primary-400"
         aria-hidden="true"
       />
-      {label && <span className="font-mono text-xs text-surface-400 tracking-wide uppercase">{label}</span>}
+      {label && <span className="text-xs tracking-wide text-surface-400 uppercase font-mono">{label}</span>}
     </div>
   )
 }
-

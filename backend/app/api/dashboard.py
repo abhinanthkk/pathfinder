@@ -55,10 +55,14 @@ def _build_streak(db: Session, user_id: str) -> StreakResponse:
     )
 
 
-def _build_recent_badges(db: Session, user_id: str, limit: int = 3) -> list[BadgeItem]:
+def _build_recent_badges(db: Session, user_id: str, path_id: str = "", limit: int = 3) -> list[BadgeItem]:
+    """Latest badges: the user's global badges plus those earned in `path_id`."""
     user_badges = (
         db.query(UserBadge)
-        .filter(UserBadge.user_id == user_id)
+        .filter(
+            UserBadge.user_id == user_id,
+            (UserBadge.path_id == path_id) | (UserBadge.path_id == ""),
+        )
         .order_by(UserBadge.earned_at.desc())
         .limit(limit)
         .all()
@@ -231,7 +235,7 @@ def get_dashboard(
             for a in adaptations
         ],
         streak=streak,
-        recent_badges=_build_recent_badges(db, user_id),
+        recent_badges=_build_recent_badges(db, user_id, learning_path.id),
         skill_progress=_build_skill_progress(db, user_id, learning_path.id),
         milestone_breakdown=milestone_breakdown,
         current_step=current_step_resp,

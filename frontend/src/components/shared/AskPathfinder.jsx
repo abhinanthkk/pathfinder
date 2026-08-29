@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { Sparkles, X, Send, Bot, User, ArrowRight, CornerDownLeft } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Button } from '../ui/Button'
+import { EASE } from '../../lib/motion'
 import api from '../../services/api'
 import useUserStore from '../../store/useUserStore'
 import usePathStore from '../../store/usePathStore'
@@ -104,27 +106,35 @@ export function AskPathfinder({ isOpen, onClose }) {
     }
   }
 
-  if (!isOpen) return null
-
   return (
-    <div
-      className="fixed inset-0 z-[80] flex justify-end"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="assistant-title"
-    >
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-[2px] transition-opacity"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+    <AnimatePresence>
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-[80] flex justify-end"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="assistant-title"
+        >
+          {/* Backdrop */}
+          <motion.div
+            className="fixed inset-0 bg-black/60 backdrop-blur-[2px]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15, ease: EASE }}
+            onClick={onClose}
+            aria-hidden="true"
+          />
 
-      {/* Assistant Drawer Panel */}
-      <div
-        ref={drawerRef}
-        className="relative z-10 flex h-full w-full max-w-lg flex-col border-l border-surface-700 bg-surface-950 shadow-2xl"
-      >
+          {/* Assistant Drawer Panel */}
+          <motion.div
+            ref={drawerRef}
+            initial={{ x: 420 }}
+            animate={{ x: 0 }}
+            exit={{ x: 420 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+            className="relative z-10 flex h-full w-full max-w-lg flex-col border-l border-surface-700 bg-surface-950 shadow-2xl"
+          >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-surface-800 px-5 py-4 bg-surface-900/70">
           <div className="flex items-center gap-2.5">
@@ -259,7 +269,9 @@ export function AskPathfinder({ isOpen, onClose }) {
             </span>
           </div>
         </div>
+        </motion.div>
       </div>
-    </div>
+      )}
+    </AnimatePresence>
   )
 }

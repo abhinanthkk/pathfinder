@@ -4,10 +4,11 @@ Goal / learning-role service.
 Owns the lifecycle of a user's learning goals (active learning paths):
 
   * resolve a requested role to a canonical key (predefined or custom)
-  * create-or-update the roadmap for a role WITHOUT touching the other role
-  * enforce a maximum of MAX_ACTIVE_PATHS active roles
+  * create-or-update the roadmap for a role WITHOUT touching the other roles
+  * allow an unlimited number of independent active learning paths
   * compute per-role progress summaries
   * report onboarding status
+  * delete a learning path (with last-path safety)
 """
 from __future__ import annotations
 
@@ -20,11 +21,15 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.models import (
+    AdaptationEvent,
     GeneratedRoadmap,
     LearnerProfile,
     LearningPath,
     PathNode,
+    ProgressEvent,
+    SkillProgress,
     User,
+    UserBadge,
     UserSkill,
 )
 from app.schemas.profile import (
@@ -37,11 +42,11 @@ from app.schemas.profile import (
 )
 from app.services.path_generator import generate_learning_path, MILESTONE_TITLES
 from app.services.progression import (
-    MAX_ACTIVE_PATHS,
     active_path_count,
     path_nodes,
     path_stats,
     select_current_step,
+    set_current_path,
 )
 from app.services.skill_graph import get_skill_graph
 
@@ -156,19 +161,19 @@ def save_ai_roadmap(
     Persist an AI-generated roadmap for `key`.
 
     If the user already has an active path for this role it is refreshed in
-    place; otherwise a new path is created (enforcing MAX_ACTIVE_PATHS).
+    place; otherwise a new path is created. Users may hold as many independent
+    learning paths as they want.
     """
     existing_path = _existing_path_for_role(db, user.id, key)
-    if not existing_path and active_path_count(db, user.id) >= MAX_ACTIVE_PATHS:
-        raise HTTPException(
-            status_code=400,
-            detail="You currently have 2 active learning paths.",
-        )
 
-    # Raw roadmap cache
+    # Raw roadmap cache, scoped per goal so multiple custom roadmaps never
+    # overwrite each other.
     existing_gr = (
         db.query(GeneratedRoadmap)
-        .filter(GeneratedRoadmap.user_id == user.id)
+        .filter(
+            GeneratedRoadmap.user_id == user.id,
+            GeneratedRoadmap.goal == goal_label,
+        )
         .first()
     )
     if existing_gr:
@@ -321,13 +326,6 @@ async def create_or_update_goal(db: Session, user: User, data: GoalCreate) -> tu
     if data.is_custom:
         is_custom = True
 
-    existing_before = _existing_path_for_role(db, user.id, key)
-    if not existing_before and active_path_count(db, user.id) >= MAX_ACTIVE_PATHS:
-        raise HTTPException(
-            status_code=400,
-            detail="You currently have 2 active learning paths.",
-        )
-
     _apply_request_metadata(db, user, data, key, is_custom)
 
     goal_label = data.goal or role_display(key)
@@ -444,5 +442,80 @@ def get_onboarding_status(db: Session, user_id: str) -> OnboardingStatusResponse
         needs_onboarding=needs,
         onboarding_complete=onboarding_complete,
         active_goals=count,
-        max_goals=MAX_ACTIVE_PATHS,
     )
+
+
+def delete_learning_path(db: Session, user_id: str, path_id: str) -> GoalsResponse:
+    """
+    Permanently delete a single learning path and everything scoped to it.
+
+    Safety rules:
+      * the user must always keep at least ONE learning path, so deleting the
+        final remaining path is rejected with a clear message.
+      * when the deleted path is the current one, another remaining path is
+        auto-selected and becomes current (never leaving the app in an invalid
+        state).
+      * only the targeted path's nodes/progress/skills/badges/activity are
+        removed; unrelated paths and the user account are untouched.
+    """
+    path = (
+        db.query(LearningPath)
+        .filter(
+            LearningPath.id == path_id,
+            LearningPath.user_id == user_id,
+            LearningPath.status.in_(("active", "completed")),
+        )
+        .first()
+    )
+    if not path:
+        raise HTTPException(status_code=404, detail="Learning path not found.")
+
+    remaining = (
+        db.query(LearningPath)
+        .filter(
+            LearningPath.user_id == user_id,
+            LearningPath.status.in_(("active", "completed")),
+            LearningPath.id != path_id,
+        )
+        .count()
+    )
+    if remaining < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="You need at least one learning path. Add another path before deleting this one.",
+        )
+
+    if path.is_current:
+        replacement = (
+            db.query(LearningPath)
+            .filter(
+                LearningPath.user_id == user_id,
+                LearningPath.status.in_(("active", "completed")),
+                LearningPath.id != path_id,
+            )
+            .order_by(LearningPath.created_at.asc())
+            .first()
+        )
+        path.is_current = False
+        if replacement:
+            replacement.is_current = True
+            db.add(replacement)
+
+    # Delete only the data owned by this path.
+    db.query(PathNode).filter(PathNode.path_id == path_id).delete()
+    db.query(SkillProgress).filter(
+        SkillProgress.user_id == user_id, SkillProgress.path_id == path_id
+    ).delete()
+    db.query(UserBadge).filter(
+        UserBadge.user_id == user_id, UserBadge.path_id == path_id
+    ).delete()
+    db.query(AdaptationEvent).filter(
+        AdaptationEvent.user_id == user_id, AdaptationEvent.path_id == path_id
+    ).delete()
+    db.query(ProgressEvent).filter(
+        ProgressEvent.user_id == user_id, ProgressEvent.path_id == path_id
+    ).delete()
+    db.delete(path)
+    db.commit()
+
+    return get_goals_summary(db, user_id)

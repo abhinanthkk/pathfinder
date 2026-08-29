@@ -52,9 +52,9 @@ const SignupPage = () => {
 
   return (
     <AuthShell
-      tag="AUTH / REGISTRATION"
-      title="INITIALIZE ACCOUNT"
-      subtitle="Configure your engineering profile and learning trajectory."
+      tag="Auth / Registration"
+      title="Create your account"
+      subtitle="Set up your profile and start your learning trajectory."
     >
       {errors.form && (
         <div
@@ -67,7 +67,7 @@ const SignupPage = () => {
 
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <Input
-          label="FULL NAME"
+          label="Full name"
           autoComplete="name"
           placeholder="Jane Doe"
           value={name}
@@ -77,7 +77,7 @@ const SignupPage = () => {
         />
         <Input
           type="email"
-          label="WORK OR PERSONAL EMAIL"
+          label="Email address"
           autoComplete="email"
           placeholder="engineer@company.com"
           value={email}
@@ -87,7 +87,7 @@ const SignupPage = () => {
         />
         <Input
           type="password"
-          label="PASSWORD"
+          label="Password"
           autoComplete="new-password"
           placeholder="Minimum 8 characters"
           value={password}
@@ -97,19 +97,16 @@ const SignupPage = () => {
           hint="Minimum 8 alphanumeric characters."
         />
         <div className="pt-2">
-          <Button type="submit" size="lg" loading={loading} className="w-full font-mono text-xs tracking-wider">
-            {loading ? 'INITIALIZING…' : 'CREATE ACCOUNT →'}
+          <Button type="submit" size="lg" loading={loading} className="w-full">
+            {loading ? 'Creating account…' : 'Create account'}
           </Button>
         </div>
       </form>
 
       <div className="mt-6 border-t border-surface-800 pt-4 text-center font-mono text-xs text-surface-400">
         <span>Already have an account? </span>
-        <Link
-          to="/login"
-          className="text-primary-400 font-semibold transition-colors hover:text-primary-300"
-        >
-          LOG IN →
+        <Link to="/login" className="font-semibold text-primary-400 transition-colors hover:text-primary-300">
+          Log in →
         </Link>
       </div>
     </AuthShell>

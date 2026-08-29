@@ -53,9 +53,9 @@ const LoginPage = () => {
 
   return (
     <AuthShell
-      tag="AUTH / LOGIN"
-      title="WELCOME BACK"
-      subtitle="Authenticate to access your active engineering roadmap."
+      tag="Auth / Login"
+      title="Welcome back"
+      subtitle="Authenticate to access your active learning roadmap."
     >
       {errors.form && (
         <div
@@ -69,7 +69,7 @@ const LoginPage = () => {
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <Input
           type="email"
-          label="EMAIL ADDRESS"
+          label="Email address"
           autoComplete="email"
           placeholder="engineer@company.com"
           value={email}
@@ -79,7 +79,7 @@ const LoginPage = () => {
         />
         <Input
           type="password"
-          label="PASSWORD"
+          label="Password"
           autoComplete="current-password"
           placeholder="••••••••••••"
           value={password}
@@ -88,19 +88,16 @@ const LoginPage = () => {
           required
         />
         <div className="pt-2">
-          <Button type="submit" size="lg" loading={loading} className="w-full font-mono text-xs tracking-wider">
-            {loading ? 'AUTHENTICATING…' : 'LOG IN →'}
+          <Button type="submit" size="lg" loading={loading} className="w-full">
+            {loading ? 'Authenticating…' : 'Log in'}
           </Button>
         </div>
       </form>
 
       <div className="mt-6 border-t border-surface-800 pt-4 text-center font-mono text-xs text-surface-400">
         <span>Need an account? </span>
-        <Link
-          to="/signup"
-          className="text-primary-400 font-semibold transition-colors hover:text-primary-300"
-        >
-          SIGN UP →
+        <Link to="/signup" className="font-semibold text-primary-400 transition-colors hover:text-primary-300">
+          Sign up →
         </Link>
       </div>
     </AuthShell>

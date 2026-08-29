@@ -1,26 +1,46 @@
 import { useNavigate } from 'react-router-dom'
-import { Plus, Check, Layers, CheckCircle2 } from 'lucide-react'
+import { Plus, Check, Layers, CheckCircle2, Trash2 } from 'lucide-react'
+import { motion } from 'framer-motion'
 import useGoalsStore from '../../store/useGoalsStore'
 import { useToast } from '../../context/ToastContext'
+import { Modal } from '../ui/Modal'
+import { Button } from '../ui/Button'
+import { CountUp } from '../ui/CountUp'
+import Stagger from '../shared/motion/Stagger'
+import StaggerItem from '../shared/motion/StaggerItem'
+import { fadeUp } from '../../lib/motion'
+import { useState } from 'react'
 
 /**
- * Compact, reusable roadmap switcher. Used at the top of the Progress page
+ * Editorial, reusable roadmap switcher. Used at the top of the Progress page
  * (and the Roadmap page) so the user can swap between their active learning
  * paths without a reload. Switching updates the global activePathId which all
  * data pages subscribe to.
+ *
+ * The switcher is calm: rows reveal on mount, the active path carries a quiet
+ * gold indicator that follows the selection, and switching never blanks the
+ * page — the subscribed data view re-staggers once the new path resolves.
+ *
+ * Users may hold an unlimited number of learning paths. The only hard rule is
+ * that at least one path must remain, so the final path cannot be deleted.
+ * Deleting a path uses the editorial destructive dialog.
  */
 export function RoadmapSwitcher() {
   const navigate = useNavigate()
   const toast = useToast()
-  const { goals, activePathId, status, activate, isMaxed } = useGoalsStore()
+  const { goals, activePathId, status, activate, deletePath } = useGoalsStore()
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+  const [switchingId, setSwitchingId] = useState(null)
 
   const activeGoals = (goals || []).filter((g) => g.status === 'active')
   const completedGoals = (goals || []).filter((g) => g.status === 'completed')
-  const maxed = isMaxed()
+  const totalGoals = activeGoals.length + completedGoals.length
 
   const handleActivate = async (pathId) => {
     if (pathId === activePathId) return
     const before = activePathId
+    setSwitchingId(pathId)
     try {
       const res = await activate(pathId)
       if (res.ok) {
@@ -32,131 +52,236 @@ export function RoadmapSwitcher() {
     } catch {
       toast.error('Failed to switch path.')
       if (before) useGoalsStore.setState({ activePathId: before })
+    } finally {
+      setSwitchingId(null)
     }
   }
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deletePath(deleteTarget.path_id)
+      toast.success(`Deleted the ${deleteTarget.role_label} path.`)
+      setDeleteTarget(null)
+    } catch (err) {
+      const detail = err?.response?.data?.detail || ''
+      toast.error(detail || 'Failed to delete path.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const rowCls = (isActive, kind) =>
+    `group relative flex w-full items-center gap-3 overflow-hidden rounded-[10px] border px-3 py-3 text-left transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400 ${
+      isActive
+        ? 'border-primary-400/40 bg-primary-400/[0.06]'
+        : kind === 'completed'
+          ? 'border-surface-800 bg-surface-900/40 hover:border-emerald-500/30 hover:bg-surface-900/70'
+          : 'border-surface-800 bg-surface-900/40 hover:border-surface-700 hover:bg-surface-900/70'
+    }`
+
   return (
-    <div className="rounded-[8px] border border-surface-800 bg-surface-900/60 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-primary-400">
-          <Layers className="h-3.5 w-3.5" aria-hidden="true" />
-          &gt; ACTIVE LEARNING PATH
-          <span className="rounded-[3px] border border-surface-700 bg-surface-900 px-1.5 py-0.5 text-surface-400">
-            {activeGoals.length} / 2
-          </span>
-        </div>
-        {!maxed && (
+    <Stagger className="flex flex-col gap-3 rounded-[12px] border border-surface-800 bg-surface-925/60 p-4 sm:p-5" staggerChildren={0.06}>
+      <StaggerItem>
+        <div className="mb-1 flex items-center justify-between">
+          <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-primary-400">
+            <Layers className="h-3.5 w-3.5" aria-hidden="true" />
+            {`>`} LEARNING PATHS
+            <span className="rounded-[3px] border border-surface-700 bg-surface-900 px-1.5 py-0.5 text-surface-400">
+              {totalGoals}
+            </span>
+          </div>
           <button
             onClick={() => navigate('/onboarding')}
-            className="flex items-center gap-1 rounded-[4px] border border-surface-700 px-2.5 py-1 font-mono text-[10px] text-surface-300 transition-all hover:border-primary-400/50 hover:text-primary-400"
+            className="flex items-center gap-1.5 rounded-[6px] border border-surface-700 px-2.5 py-1 font-mono text-[10px] text-surface-300 transition-all hover:border-primary-400/50 hover:text-primary-400 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400"
           >
             <Plus className="h-3 w-3" aria-hidden="true" />
             Add Path
           </button>
-        )}
-      </div>
+        </div>
+      </StaggerItem>
+
+      <StaggerItem>
+        <div className="h-px w-full bg-surface-800/80" aria-hidden="true" />
+      </StaggerItem>
 
       {status === 'loading' && (
         <p className="py-1 font-mono text-[10px] text-surface-600">Loading paths…</p>
       )}
 
-      {status !== 'loading' && activeGoals.length === 0 && completedGoals.length === 0 && (
-        <button
-          onClick={() => navigate('/onboarding')}
-          className="flex w-full items-center gap-2 rounded-[6px] border border-dashed border-surface-700 px-3 py-2 text-left font-mono text-[10px] text-surface-400 transition-all hover:border-primary-400/50 hover:text-primary-400"
-        >
-          <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          Create your first learning path
-        </button>
+      {status !== 'loading' && totalGoals === 0 && (
+        <StaggerItem>
+          <button
+            onClick={() => navigate('/onboarding')}
+            className="flex w-full items-center gap-2 rounded-[10px] border border-dashed border-surface-700 px-3 py-3 text-left font-mono text-[10px] text-surface-400 transition-all hover:border-primary-400/50 hover:text-primary-400 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400"
+          >
+            <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            Create your first learning path
+          </button>
+        </StaggerItem>
       )}
 
       {activeGoals.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {activeGoals.map((g) => {
             const isActive = g.path_id === activePathId
+            const isSwitching = switchingId === g.path_id
             return (
-              <button
-                key={g.path_id}
-                onClick={() => handleActivate(g.path_id)}
-                disabled={isActive}
-                className={`flex w-full items-center gap-3 rounded-[6px] border px-3 py-2.5 text-left transition-all focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400 ${
-                  isActive
-                    ? 'border-primary-400/50 bg-primary-400/10'
-                    : 'border-surface-700 bg-surface-950/40 hover:border-surface-600 hover:bg-surface-900'
-                }`}
-                aria-pressed={isActive}
-                aria-label={`Switch to ${g.role_label}`}
-              >
-                <span
-                  className={`h-2 w-2 shrink-0 rounded-full ${
-                    isActive ? 'bg-primary-400' : 'bg-surface-600'
-                  }`}
-                  aria-hidden="true"
-                />
-                <span className="min-w-0 flex-1">
-                  <span
-                    className={`block truncate text-sm font-medium ${
-                      isActive ? 'text-primary-300' : 'text-surface-200'
-                    }`}
+              <StaggerItem key={g.path_id} variants={fadeUp({ y: 14 })}>
+                <div className={rowCls(isActive, 'active')}>
+                  {isActive && (
+                    <motion.span
+                      layoutId="active-path-marker"
+                      className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-primary-400"
+                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                      aria-hidden="true"
+                    />
+                  )}
+                  <button
+                    onClick={() => handleActivate(g.path_id)}
+                    disabled={isActive}
+                    className="flex min-w-0 flex-1 items-center gap-3 pl-3 text-left focus:outline-none"
+                    aria-pressed={isActive}
+                    aria-label={`Switch to ${g.role_label}`}
                   >
-                    {g.role_label}
-                  </span>
-                  <span className="block font-mono text-[10px] text-surface-500">
-                    {Math.round(g.progress_percentage || 0)}% complete
-                    {g.current_step_title ? ` · ${g.current_step_title}` : ''}
-                  </span>
-                </span>
-                {isActive && <Check className="h-3.5 w-3.5 shrink-0 text-primary-400" aria-hidden="true" />}
-              </button>
+                    <span
+                      className={`h-2 w-2 shrink-0 rounded-full ${
+                        isActive ? 'bg-primary-400' : 'bg-surface-600'
+                      }`}
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className={`block truncate text-sm font-medium ${
+                          isActive ? 'text-primary-200' : 'text-surface-200'
+                        }`}
+                      >
+                        {g.role_label}
+                        {isSwitching && (
+                          <span className="ml-2 inline-block animate-pulse font-mono text-[10px] font-normal text-primary-400/80">
+                            switching…
+                          </span>
+                        )}
+                      </span>
+                      <span className="flex items-center gap-1.5 font-mono text-[10px] text-surface-500">
+                        <CountUp end={Math.round(g.progress_percentage || 0)} suffix="%" />
+                        {g.current_step_title ? ` · ${g.current_step_title}` : ''}
+                      </span>
+                    </span>
+                  </button>
+                  {isActive && (
+                    <Check className="mr-1 h-3.5 w-3.5 shrink-0 text-primary-400" aria-hidden="true" />
+                  )}
+                  <button
+                    onClick={() => setDeleteTarget(g)}
+                    disabled={totalGoals <= 1}
+                    className="mr-1 shrink-0 rounded-[6px] p-1.5 text-surface-600 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30 focus:outline-none focus-visible:ring-1 focus-visible:ring-red-400"
+                    aria-label={`Delete ${g.role_label} path`}
+                    title={totalGoals <= 1 ? 'You need at least one learning path' : `Delete ${g.role_label} path`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                </div>
+              </StaggerItem>
             )
           })}
         </div>
       )}
 
       {completedGoals.length > 0 && (
-        <div className="mt-2 space-y-2">
+        <StaggerItem>
+          <p className="mt-1 mb-1 font-mono text-[10px] uppercase tracking-widest text-surface-600">
+            Completed
+          </p>
+        </StaggerItem>
+      )}
+
+      {completedGoals.length > 0 && (
+        <div className="space-y-1.5">
           {completedGoals.map((g) => {
             const isActive = g.path_id === activePathId
             return (
-              <button
-                key={g.path_id}
-                onClick={() => handleActivate(g.path_id)}
-                disabled={isActive}
-                className={`flex w-full items-center gap-3 rounded-[6px] border px-3 py-2.5 text-left transition-all focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400 ${
-                  isActive
-                    ? 'border-emerald-500/40 bg-emerald-500/10'
-                    : 'border-surface-700 bg-surface-950/40 hover:border-emerald-500/40 hover:bg-surface-900'
-                }`}
-                aria-pressed={isActive}
-                aria-label={`Switch to completed path ${g.role_label}`}
-              >
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center text-emerald-400" aria-hidden="true">
-                  <CheckCircle2 className="h-4 w-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span
-                    className={`block truncate text-sm font-medium ${
-                      isActive ? 'text-emerald-300' : 'text-surface-300'
-                    }`}
+              <StaggerItem key={g.path_id} variants={fadeUp({ y: 14 })}>
+                <div className={rowCls(isActive, 'completed')}>
+                  {isActive && (
+                    <motion.span
+                      layoutId="active-path-marker"
+                      className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-emerald-400"
+                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                      aria-hidden="true"
+                    />
+                  )}
+                  <button
+                    onClick={() => handleActivate(g.path_id)}
+                    disabled={isActive}
+                    className="flex min-w-0 flex-1 items-center gap-3 pl-3 text-left focus:outline-none"
+                    aria-pressed={isActive}
+                    aria-label={`Switch to completed path ${g.role_label}`}
                   >
-                    {g.role_label}
-                  </span>
-                  <span className="block font-mono text-[10px] uppercase tracking-wider text-emerald-500">
-                    Completed · 100%
-                  </span>
-                </span>
-                {isActive && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden="true" />}
-              </button>
+                    <span
+                      className="flex h-4 w-4 shrink-0 items-center justify-center text-emerald-400"
+                      aria-hidden="true"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className={`block truncate text-sm font-medium ${
+                          isActive ? 'text-emerald-300' : 'text-surface-300'
+                        }`}
+                      >
+                        {g.role_label}
+                      </span>
+                      <span className="block font-mono text-[10px] uppercase tracking-wider text-emerald-500">
+                        Completed · 100%
+                      </span>
+                    </span>
+                  </button>
+                  {isActive && (
+                    <Check className="mr-1 h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden="true" />
+                  )}
+                  <button
+                    onClick={() => setDeleteTarget(g)}
+                    disabled={totalGoals <= 1}
+                    className="mr-1 shrink-0 rounded-[6px] p-1.5 text-surface-600 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30 focus:outline-none focus-visible:ring-1 focus-visible:ring-red-400"
+                    aria-label={`Delete completed path ${g.role_label}`}
+                    title={totalGoals <= 1 ? 'You need at least one learning path' : `Delete ${g.role_label} path`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                </div>
+              </StaggerItem>
             )
           })}
         </div>
       )}
 
-      {maxed && (
-        <p className="mt-2 px-1 font-mono text-[9px] text-surface-600">
-          Max 2 active paths reached · manage in Profile
+      <Modal
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        destructive
+        tag="DELETE PATH"
+        title={`Delete ${deleteTarget?.role_label || 'learning path'}?`}
+        description="This permanently removes the path, its roadmap, progress, skills and badges. This cannot be undone."
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDelete} loading={deleting}>
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+              Delete path
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm leading-relaxed text-surface-400">
+          {deleteTarget?.status === 'active'
+            ? `"${deleteTarget?.role_label}" will be removed from your learning paths.`
+            : `The completed path "${deleteTarget?.role_label}" will be removed.`}
         </p>
-      )}
-    </div>
+      </Modal>
+    </Stagger>
   )
 }

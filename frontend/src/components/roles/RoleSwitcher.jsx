@@ -20,7 +20,7 @@ const tooltipCls =
 export function RoleSwitcher({ expanded, onExpand }) {
   const navigate = useNavigate()
   const toast = useToast()
-  const { goals, activePathId, status, fetchGoals, activate, isMaxed } = useGoalsStore()
+  const { goals, activePathId, status, fetchGoals, activate } = useGoalsStore()
 
   useEffect(() => {
     if (goals.length === 0 && status === 'idle') {
@@ -47,8 +47,6 @@ export function RoleSwitcher({ expanded, onExpand }) {
     }
   }
 
-  const maxed = isMaxed()
-
   if (!expanded) {
     return (
       <div className="shrink-0 px-2 pb-2">
@@ -74,7 +72,7 @@ export function RoleSwitcher({ expanded, onExpand }) {
         </p>
         {status !== 'loading' && (
           <span className="rounded-[3px] border border-surface-800 bg-surface-900 px-1.5 py-0.5 font-mono text-[9px] text-surface-500">
-            {goals.filter((g) => g.status === 'active').length}/{isMaxed() ? 2 : '2'}
+            {goals.filter((g) => g.status === 'active').length}
           </span>
         )}
       </div>
@@ -131,19 +129,13 @@ export function RoleSwitcher({ expanded, onExpand }) {
         })}
       </div>
 
-      {maxed ? (
-        <p className="mt-2 px-1 font-mono text-[9px] text-surface-600">
-          Max 2 roles reached · manage in Profile
-        </p>
-      ) : (
-        <button
+      <button
           onClick={() => navigate('/onboarding')}
           className="mt-2 flex w-full items-center gap-2 rounded-[6px] px-2.5 py-1.5 text-left font-mono text-[10px] text-surface-500 transition-all hover:text-primary-400"
         >
           <Plus className="h-3 w-3" aria-hidden="true" />
           Add another role
         </button>
-      )}
     </div>
   )
 }

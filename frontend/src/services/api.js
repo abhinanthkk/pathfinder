@@ -79,6 +79,7 @@ export const createGoal = (data) => api.post('/goals', data, { timeout: 60000 })
 export const activateGoal = (pathId) => api.post(`/goals/${pathId}/activate`)
 export const activatePath = (pathId) => api.put(`/paths/${pathId}/activate`)
 export const archivePath = (pathId) => api.post(`/paths/${pathId}/archive`)
+export const deletePath = (pathId) => api.delete(`/paths/${pathId}`)
 export const getPathProgress = (pathId) => api.get(`/paths/${pathId}/progress`)
 export const completeStep = (pathId, nodeId) =>
   api.post(`/paths/${pathId}/steps/${nodeId}/complete`, {}, { timeout: 15000 })
@@ -113,6 +114,7 @@ api.createGoal = createGoal
 api.activateGoal = activateGoal
 api.activatePath = activatePath
 api.archivePath = archivePath
+api.deletePath = deletePath
 api.getPathProgress = getPathProgress
 api.completeStep = completeStep
 api.skipStep = skipStep

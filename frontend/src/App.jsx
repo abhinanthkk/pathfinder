@@ -1,7 +1,9 @@
-import { Suspense, lazy } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Suspense, lazy, useEffect, useRef } from 'react'
+import { Routes, Route, useLocation } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Spinner } from './components/ui/Spinner'
 import { ProtectedRoute } from './routes/ProtectedRoute'
+import { pageShell } from './lib/motion'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
@@ -16,73 +18,107 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 
 function LoadingScreen() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface-950">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface-950">
       <Spinner label="Loading…" />
     </div>
   )
 }
 
+/** Resets scroll between route transitions so every page starts at the top. */
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  const first = useRef(true)
+
+  useEffect(() => {
+    if (first.current) {
+      first.current = false
+      return
+    }
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [pathname])
+
+  return null
+}
+
+function AnimatedRoutes() {
+  const location = useLocation()
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        key={location.pathname}
+        initial={pageShell.initial}
+        animate={pageShell.enter}
+        exit={pageShell.exit}
+      >
+        <Routes location={location}>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+
+          <Route
+            path="/onboarding"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingScreen />}>
+                  <OnboardingPage />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/roadmap"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingScreen />}>
+                  <RoadmapPage />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingScreen />}>
+                  <DashboardPage />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/progress"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingScreen />}>
+                  <ProgressPage />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingScreen />}>
+                  <ProfilePage />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </motion.div>
+    </AnimatePresence>
+  )
+}
+
 function App() {
   return (
-    <div className="min-h-screen bg-surface-950 text-surface-100 font-sans">
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-
-        <Route
-          path="/onboarding"
-          element={
-            <ProtectedRoute>
-              <Suspense fallback={<LoadingScreen />}>
-                <OnboardingPage />
-              </Suspense>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/roadmap"
-          element={
-            <ProtectedRoute>
-              <Suspense fallback={<LoadingScreen />}>
-                <RoadmapPage />
-              </Suspense>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Suspense fallback={<LoadingScreen />}>
-                <DashboardPage />
-              </Suspense>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/progress"
-          element={
-            <ProtectedRoute>
-              <Suspense fallback={<LoadingScreen />}>
-                <ProgressPage />
-              </Suspense>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <Suspense fallback={<LoadingScreen />}>
-                <ProfilePage />
-              </Suspense>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+    <div className="min-h-screen bg-surface-950 font-sans text-surface-100">
+      <ScrollToTop />
+      <AnimatedRoutes />
     </div>
   )
 }

@@ -310,7 +310,6 @@ class OnboardingStatusResponse(BaseModel):
     needs_onboarding: bool = True
     onboarding_complete: bool = False
     active_goals: int = 0
-    max_goals: int = 2
 
 
 class GoalCreate(BaseModel):

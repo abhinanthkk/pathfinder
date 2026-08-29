@@ -111,6 +111,7 @@ class ProgressEvent(Base):
 
     id = Column(String, primary_key=True, default=generate_uuid)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    path_id = Column(String, nullable=False, default="")
     resource_id = Column(String, nullable=False)
     old_status = Column(String, default="locked")
     new_status = Column(String, nullable=False)

@@ -146,6 +146,7 @@ async def update_progress(
 
     db.add(ProgressEvent(
         user_id=user_id,
+        path_id=learning_path.id,
         resource_id=data.resource_id,
         old_status=old_status,
         new_status=data.status,

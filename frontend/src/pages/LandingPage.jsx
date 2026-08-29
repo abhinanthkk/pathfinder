@@ -3,6 +3,10 @@ import { ArrowRight, Terminal, Network, Activity, Cpu } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { Logo } from '../components/shared/Logo'
 import { Button } from '../components/ui/Button'
+import SplitLines from '../components/shared/motion/SplitLines'
+import Stagger from '../components/shared/motion/Stagger'
+import StaggerItem from '../components/shared/motion/StaggerItem'
+import Reveal from '../components/shared/motion/Reveal'
 
 const PILLARS = [
   {
@@ -42,10 +46,10 @@ export default function LandingPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const ctaRoute = user ? '/dashboard' : '/signup'
-  const ctaLabel = user ? 'OPEN DASHBOARD' : 'BUILD MY PATH'
+  const ctaLabel = user ? 'Open dashboard' : 'Build my path'
 
   return (
-    <div className="min-h-screen bg-surface-950 text-surface-100 selection:bg-primary-400 selection:text-surface-950">
+    <div className="min-h-screen bg-surface-950 bg-app-ambient text-surface-100 selection:bg-primary-400 selection:text-surface-950">
       {/* Navigation */}
       <header className="sticky top-0 z-40 border-b border-surface-800 bg-surface-950/90 backdrop-blur-md">
         <nav className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-4 sm:px-8" aria-label="Primary">
@@ -55,22 +59,22 @@ export default function LandingPage() {
               variant="ghost"
               size="sm"
               onClick={() => document.querySelector('#capabilities')?.scrollIntoView({ behavior: 'smooth' })}
-              className="hidden sm:inline-flex font-mono text-xs"
+              className="hidden sm:inline-flex"
             >
-              CAPABILITIES
+              Capabilities
             </Button>
             {user ? (
               <Button size="sm" onClick={() => navigate('/dashboard')}>
-                DASHBOARD
+                Dashboard
                 <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
               </Button>
             ) : (
               <>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/login')} className="font-mono text-xs">
-                  LOG IN
+                <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>
+                  Log in
                 </Button>
                 <Button size="sm" onClick={() => navigate('/signup')}>
-                  GET STARTED
+                  Get started
                 </Button>
               </>
             )}
@@ -81,107 +85,122 @@ export default function LandingPage() {
       <main>
         {/* Hero Section */}
         <section className="relative mx-auto w-full max-w-6xl px-4 pt-16 pb-20 sm:px-8 md:pt-24 md:pb-28">
-          <div className="max-w-3xl">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-[4px] border border-surface-700 bg-surface-900 px-2.5 py-1 font-mono text-[11px] font-medium tracking-wider text-surface-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary-400" />
-              &gt; SYSTEM / DETERMINISTIC LEARNING ENGINE
-            </div>
+          <Stagger className="max-w-3xl" staggerChildren={0.09} delayChildren={0.05}>
+            <StaggerItem>
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-surface-800 bg-surface-925 px-3 py-1 font-mono text-[11px] font-medium tracking-wider text-surface-300">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-400 opacity-60" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary-400" />
+                </span>
+                Deterministic learning engine
+              </div>
+            </StaggerItem>
 
-            <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl md:text-6xl leading-[1.08]">
-              Your learning path, <br />
-              <span className="text-primary-400">built around you.</span>
-            </h1>
+            <StaggerItem>
+              <SplitLines
+                parts={[
+                  { text: 'Your learning path,' },
+                  { text: 'built around you.', className: 'text-primary-400' },
+                ]}
+                as="h1"
+                ariaLabel="Your learning path, built around you."
+                mount
+                delay={0.1}
+                stagger={0.08}
+                className="text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl md:text-6xl"
+              />
+            </StaggerItem>
 
-            <p className="mt-6 max-w-xl text-base leading-relaxed text-surface-400 sm:text-lg">
-              AI-powered learning paths based on your skills, goals and experience. Deterministic sequencing, adaptive milestones, zero generic fluff.
-            </p>
+            <StaggerItem y={24}>
+              <p className="mt-6 max-w-xl text-base leading-relaxed text-surface-400 sm:text-lg">
+                AI-powered learning paths based on your skills, goals and experience. Deterministic sequencing, adaptive milestones, zero generic fluff.
+              </p>
+            </StaggerItem>
 
-            <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-              <Button size="lg" onClick={() => navigate(ctaRoute)} className="w-full sm:w-auto font-mono text-xs tracking-wider">
-                {ctaLabel}
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Button>
-              {!user && (
-                <Button
-                  size="lg"
-                  variant="secondary"
-                  onClick={() => navigate('/login')}
-                  className="w-full sm:w-auto font-mono text-xs tracking-wider"
-                >
-                  SIGN IN →
+            <StaggerItem>
+              <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+                <Button size="lg" onClick={() => navigate(ctaRoute)} className="w-full sm:w-auto">
+                  {ctaLabel}
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Button>
-              )}
-            </div>
-          </div>
+                {!user && (
+                  <Button size="lg" variant="secondary" onClick={() => navigate('/login')} className="w-full sm:w-auto">
+                    Log in
+                  </Button>
+                )}
+              </div>
+            </StaggerItem>
+          </Stagger>
 
           {/* Technical Architecture Preview */}
-          <div className="mt-14 overflow-hidden rounded-[8px] border border-surface-700 bg-surface-900/60 p-5 sm:p-6">
-            <div className="mb-4 flex items-center justify-between border-b border-surface-800 pb-3 font-mono text-[11px] text-surface-500">
-              <span className="flex items-center gap-2 text-surface-300">
-                <span className="h-2 w-2 rounded-full bg-primary-400" />
-                ACTIVE_GRAPH: BACKEND_SYSTEMS_ENGINEER
-              </span>
-              <span>EST_TOTAL: 70 HOURS</span>
-            </div>
+          <Reveal y={48} delay={0.15} className="mt-14">
+            <div className="overflow-hidden rounded-[10px] border border-surface-700 bg-surface-900/60 p-5 sm:p-6">
+              <div className="mb-4 flex items-center justify-between border-b border-surface-800 pb-3 font-mono text-[11px] text-surface-500">
+                <span className="flex items-center gap-2 text-surface-300">
+                  <span className="h-2 w-2 rounded-full bg-primary-400" />
+                  ACTIVE_GRAPH: BACKEND_SYSTEMS_ENGINEER
+                </span>
+                <span>EST_TOTAL: 70 HOURS</span>
+              </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {PIPELINE_NODES.map((node) => (
-                <div
-                  key={node.step}
-                  className={`rounded-[6px] border p-4 transition-colors ${
-                    node.active
-                      ? 'border-primary-400 bg-primary-400/5 shadow-highlight'
-                      : 'border-surface-800 bg-surface-950/60'
-                  }`}
-                >
-                  <div className="flex items-center justify-between font-mono text-[10px]">
-                    <span className={node.active ? 'text-primary-400 font-bold' : 'text-surface-500'}>
-                      {node.step}
-                    </span>
-                    <span
-                      className={`rounded-[3px] border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider ${
-                        node.status === 'COMPLETED'
-                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                          : node.status === 'IN PROGRESS'
-                            ? 'border-primary-400/40 bg-primary-400/10 text-primary-400'
-                            : 'border-surface-800 bg-surface-900 text-surface-500'
+              <Stagger className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" staggerChildren={0.07}>
+                {PIPELINE_NODES.map((node) => (
+                  <StaggerItem key={node.step} y={20}>
+                    <div
+                      className={`rounded-[8px] border p-4 transition-colors ${
+                        node.active
+                          ? 'border-primary-400 bg-primary-400/5 shadow-subtle'
+                          : 'border-surface-800 bg-surface-950/60'
                       }`}
                     >
-                      {node.status}
-                    </span>
-                  </div>
-                  <h3 className="mt-2.5 text-xs font-semibold text-white">
-                    {node.title}
-                  </h3>
-                  <p className="mt-1 font-mono text-[11px] text-surface-500">
-                    Est. {node.hours}
-                  </p>
-                </div>
-              ))}
+                      <div className="flex items-center justify-between font-mono text-[10px]">
+                        <span className={node.active ? 'font-bold text-primary-400' : 'text-surface-500'}>
+                          {node.step}
+                        </span>
+                        <span
+                          className={`rounded-[3px] border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider ${
+                            node.status === 'COMPLETED'
+                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                              : node.status === 'IN PROGRESS'
+                                ? 'border-primary-400/40 bg-primary-400/10 text-primary-400'
+                                : 'border-surface-800 bg-surface-900 text-surface-500'
+                          }`}
+                        >
+                          {node.status}
+                        </span>
+                      </div>
+                      <h3 className="mt-2.5 text-xs font-semibold text-white">
+                        {node.title}
+                      </h3>
+                      <p className="mt-1 font-mono text-[11px] text-surface-500">
+                        Est. {node.hours}
+                      </p>
+                    </div>
+                  </StaggerItem>
+                ))}
+              </Stagger>
             </div>
-          </div>
+          </Reveal>
         </section>
 
         {/* Capabilities Grid */}
         <section id="capabilities" className="border-y border-surface-800 bg-surface-900/30 py-20">
           <div className="mx-auto w-full max-w-6xl px-4 sm:px-8">
-            <div className="mb-12 max-w-xl">
-              <p className="font-mono text-xs font-medium uppercase tracking-widest text-primary-400">
-                &gt; CORE PRINCIPLES
-              </p>
+            <Reveal className="mb-12 max-w-xl">
+              <p className="section-label text-primary-400">Core principles</p>
               <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
                 Engineered for maximum skill acquisition.
               </h2>
-            </div>
+            </Reveal>
 
-            <div className="grid grid-cols-1 gap-px overflow-hidden rounded-[8px] border border-surface-800 bg-surface-800 sm:grid-cols-2 lg:grid-cols-4">
+            <Stagger staggerChildren={0.1} className="grid grid-cols-1 gap-px overflow-hidden rounded-[10px] border border-surface-800 bg-surface-800 sm:grid-cols-2 lg:grid-cols-4">
               {PILLARS.map((p) => (
-                <div key={p.title} className="bg-surface-950 p-6 flex flex-col justify-between">
+                <StaggerItem key={p.title} y={24} className="bg-surface-950 p-6 flex flex-col justify-between">
                   <div>
                     <span className="font-mono text-[10px] uppercase tracking-widest text-surface-500">
                       {p.tag}
                     </span>
-                    <div className="mt-4 mb-3 flex h-8 w-8 items-center justify-center rounded-[4px] border border-surface-700 bg-surface-900">
+                    <div className="mb-3 mt-4 flex h-8 w-8 items-center justify-center rounded-[6px] border border-surface-700 bg-surface-900">
                       <p.icon className="h-4 w-4 text-primary-400" aria-hidden="true" />
                     </div>
                     <h3 className="text-sm font-semibold text-white">
@@ -191,30 +210,30 @@ export default function LandingPage() {
                       {p.desc}
                     </p>
                   </div>
-                </div>
+                </StaggerItem>
               ))}
-            </div>
+            </Stagger>
           </div>
         </section>
 
         {/* Minimal Bottom CTA */}
         <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-8">
-          <div className="rounded-[8px] border border-surface-700 bg-surface-900/50 p-8 sm:p-12 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            <div className="max-w-xl">
-              <p className="font-mono text-xs uppercase tracking-widest text-primary-400">
-                &gt; START PROFILING
-              </p>
-              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-                Ready to calibrate your roadmap?
-              </h2>
-              <p className="mt-2 text-sm text-surface-400">
-                Complete a 3-minute guided profiling session to generate your adaptive sequence.
-              </p>
+          <Reveal y={32}>
+            <div className="flex flex-col items-start justify-between gap-6 rounded-[10px] border border-surface-700 bg-surface-900/50 p-8 sm:flex-row sm:items-center sm:p-12">
+              <div className="max-w-xl">
+                <p className="section-label text-primary-400">Start profiling</p>
+                <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+                  Ready to calibrate your roadmap?
+                </h2>
+                <p className="mt-2 text-sm text-surface-400">
+                  Complete a 3-minute guided profiling session to generate your adaptive sequence.
+                </p>
+              </div>
+              <Button size="lg" onClick={() => navigate(ctaRoute)} className="shrink-0">
+                {ctaLabel} →
+              </Button>
             </div>
-            <Button size="lg" onClick={() => navigate(ctaRoute)} className="shrink-0 font-mono text-xs tracking-wider">
-              {ctaLabel} →
-            </Button>
-          </div>
+          </Reveal>
         </section>
       </main>
 
@@ -231,4 +250,3 @@ export default function LandingPage() {
     </div>
   )
 }
-
