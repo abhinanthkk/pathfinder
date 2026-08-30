@@ -46,11 +46,33 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 
+class _ClerkHeaders(Mapping[str, str]):
+    """Case-insensitive header mapping so Clerk's authenticator finds the Authorization header
+    regardless of casing (Clerk's SDK reads 'Authorization')."""
+
+    def __init__(self, headers: Mapping[str, str]):
+        self._store = {k.lower(): v for k, v in headers.items()}
+
+    def __getitem__(self, key: str) -> str:
+        return self._store[key.lower()]
+
+    def __iter__(self):
+        return iter(self._store)
+
+    def __len__(self) -> int:
+        return len(self._store)
+
+    def get(self, key: str, default=None):
+        return self._store.get(key.lower(), default)
+
+
 class _ClerkRequest:
     """Minimal Requestish adapter exposing the Authorization header to Clerk's authenticator."""
 
     def __init__(self, token: str):
-        self._headers: Mapping[str, str] = {"authorization": f"Bearer {token}"}
+        self._headers: Mapping[str, str] = _ClerkHeaders(
+            {"Authorization": f"Bearer {token}"}
+        )
 
     @property
     def headers(self) -> Mapping[str, str]:
@@ -59,7 +81,7 @@ class _ClerkRequest:
 
 def verify_clerk_token(token: str):
     """Verify a Clerk-issued session token and return its decoded claims, or None if absent/invalid."""
-    if not CLERK_SECRET_KEY:
+    if not (CLERK_JWT_KEY or CLERK_SECRET_KEY):
         return None
     try:
         from clerk_backend_api import Clerk
@@ -122,7 +144,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
 
     # 1) Attempt Clerk session-token verification (networkless when CLERK_JWT_KEY is set).
-    if CLERK_SECRET_KEY:
+    if CLERK_JWT_KEY or CLERK_SECRET_KEY:
         payload = verify_clerk_token(token)
         if payload is not None:
             user = provision_user_from_clerk(db, payload)

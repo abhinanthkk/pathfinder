@@ -27,8 +27,10 @@ api.interceptors.response.use(
       if (!clerkToken) {
         localStorage.removeItem('token')
         localStorage.removeItem('user')
+        if (!['/', '/login', '/signup'].includes(window.location.pathname)) {
+          window.location.href = '/'
+        }
       }
-      window.location.href = '/'
     }
     return Promise.reject(err)
   }

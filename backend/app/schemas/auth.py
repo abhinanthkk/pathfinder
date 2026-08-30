@@ -19,7 +19,7 @@ class TokenData(BaseModel):
 class UserOut(BaseModel):
     id: str
     name: str
-    email: str
+    email: str | None = None
 
     class Config:
         orm_mode = True
