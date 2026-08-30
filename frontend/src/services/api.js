@@ -5,8 +5,14 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+let clerkToken = null
+
+export const setClerkToken = (token) => {
+  clerkToken = token
+}
+
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
+  const token = clerkToken || localStorage.getItem('token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -18,8 +24,10 @@ api.interceptors.response.use(
   (err) => {
     console.error('API Error:', err.response?.data || err.message)
     if (err.response?.status === 401 && err.config?.headers?.Authorization) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
+      if (!clerkToken) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+      }
       window.location.href = '/'
     }
     return Promise.reject(err)

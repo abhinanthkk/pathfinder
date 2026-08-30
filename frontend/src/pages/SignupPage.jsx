@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { SignUp } from '@clerk/react'
 import { useAuth } from '../context/AuthContext'
 import { AuthShell } from '../components/layout/AuthShell'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
+import { clerkEnabled, pathfinderAppearance } from '../components/auth/clerkTheme'
 
-const SignupPage = () => {
+const LegacySignup = () => {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -113,5 +115,25 @@ const SignupPage = () => {
   )
 }
 
-export default SignupPage
+const SignupPage = () => {
+  if (clerkEnabled) {
+    return (
+      <AuthShell
+        tag="AUTH / REGISTRATION"
+        title="INITIALIZE ACCOUNT"
+        subtitle="Configure your engineering profile and learning trajectory."
+      >
+        <SignUp
+          routing="hash"
+          appearance={pathfinderAppearance}
+          signInUrl="/login"
+          fallbackRedirectUrl="/onboarding"
+          forceRedirectUrl="/onboarding"
+        />
+      </AuthShell>
+    )
+  }
+  return <LegacySignup />
+}
 
+export default SignupPage
