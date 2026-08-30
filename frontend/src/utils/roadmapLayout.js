@@ -1,21 +1,21 @@
-export const NODE_W = 320
+export const NODE_W = 340
 export const NODE_H = 100
-export const V_GAP = 44
+export const V_GAP = 36
 export const MIL_W = 560
-export const MIL_H = 74
-export const MIL_GAP = 88
-export const GOAL_H = 88
-export const GOAL_GAP = 54
+export const MIL_H = 70
+export const MIL_GAP = 72
+export const GOAL_H = 80
+export const GOAL_GAP = 48
 
-// Horizontal offset so wider milestone node shares the same vertical center column as resource nodes.
+// Centre milestone node over the resource column
 export const MIL_X = -((MIL_W - NODE_W) / 2)
 
 function goalDisplayName(goal, targetRole) {
   const g = (goal || '').trim()
   if (g) return g
   const role = (targetRole || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-  if (role) return `${role}`
-  return 'ENGINEERING PATH'
+  if (role) return role
+  return 'Engineering Path'
 }
 
 export function computeSummary(path, profile) {
@@ -29,7 +29,8 @@ export function computeSummary(path, profile) {
   }
 
   const completed = flat.filter((n) => n.status === 'completed').length
-  const progress = flat.length ? Math.round((completed / flat.length) * 100) : 0
+  const skipped   = flat.filter((n) => n.status === 'skipped').length
+  const progress  = flat.length ? Math.round((completed / flat.length) * 100) : 0
 
   let current = null
   let currentIndex = -1
@@ -48,7 +49,10 @@ export function computeSummary(path, profile) {
     }
   }
 
-  const next = current && currentIndex >= 0 && currentIndex < flat.length - 1 ? flat[currentIndex + 1] : null
+  const next =
+    current && currentIndex >= 0 && currentIndex < flat.length - 1
+      ? flat[currentIndex + 1]
+      : null
 
   const remainingHours = flat
     .filter((n) => n.status !== 'completed' && n.status !== 'skipped')
@@ -57,23 +61,29 @@ export function computeSummary(path, profile) {
   const totalHours = flat.reduce((s, n) => s + (Number(n.estimated_hours) || 0), 0)
 
   const weeklyHours = Number(profile?.weekly_hours) || 5
-  const weeksRemaining = remainingHours > 0 ? Math.ceil(remainingHours / Math.max(1, weeklyHours)) : 0
+  const weeksRemaining =
+    remainingHours > 0 ? Math.ceil(remainingHours / Math.max(1, weeklyHours)) : 0
   const estDate = new Date()
   estDate.setDate(estDate.getDate() + weeksRemaining * 7)
   const estimatedCompletion =
-    weeksRemaining > 0
+    flat.length === 0
+      ? '—'
+      : weeksRemaining > 0
       ? estDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       : 'COMPLETED'
 
-  // Human readable current milestone title
-  const currentMilestoneObj = milestones.find((m) => m.number === current?.milestoneNumber) || milestones[0]
-  const currentMilestone = currentMilestoneObj?.title || current?.milestoneTitle || 'INITIALIZING'
+  // Human-readable milestone label
+  const currentMilestoneObj =
+    milestones.find((m) => m.number === current?.milestoneNumber) || milestones[0]
+  const currentMilestone =
+    currentMilestoneObj?.title || current?.milestoneTitle || '—'
   const currentMilestoneNumber = current?.milestoneNumber || currentMilestoneObj?.number || 1
 
   return {
     goal: goalDisplayName(profile?.goal, profile?.target_role),
     totalSteps: flat.length,
     completedSteps: completed,
+    skippedSteps: skipped,
     progress,
     remainingHours,
     totalHours,
@@ -88,19 +98,27 @@ export function computeSummary(path, profile) {
 
 export function milestoneIsCompleted(milestone) {
   const nodes = milestone?.nodes || []
-  return nodes.length > 0 && nodes.every((n) => n.status === 'completed')
+  return (
+    nodes.length > 0 && nodes.every((n) => n.status === 'completed' || n.status === 'skipped')
+  )
 }
 
 export function milestoneIsCurrent(summary, milestone) {
   return summary.current?.milestoneNumber === milestone.number
 }
 
-// Build a vertical, milestone-based flow layout from the dynamic path data.
+/**
+ * Build the React Flow node/edge arrays from path data.
+ *
+ * Layout: vertical column — Goal → Milestone header → Resource steps → …
+ * Milestones can be collapsed to hide their steps.
+ */
 export function buildVisualRoadmap(path, profile, collapsedMilestones, onResourceClick) {
   const milestones = (path?.milestones || []).filter((m) => m && Array.isArray(m.nodes))
   const summary = computeSummary(path, profile)
   const collapsed = new Set(collapsedMilestones || [])
 
+  // Flatten to a list of step objects with milestone metadata
   const steps = []
   let stepCounter = 0
   for (const m of milestones) {
@@ -117,17 +135,19 @@ export function buildVisualRoadmap(path, profile, collapsedMilestones, onResourc
   }
 
   const inProgressIdx = steps.findIndex((s) => s.status === 'in_progress')
-  const activeIdx = inProgressIdx >= 0 ? inProgressIdx : steps.findIndex((s) => s.status === 'available' || s.status === 'locked')
-  const validIdx = activeIdx >= 0 ? activeIdx : (steps.length ? 0 : -1)
+  const activeIdx =
+    inProgressIdx >= 0
+      ? inProgressIdx
+      : steps.findIndex((s) => s.status === 'available' || s.status === 'locked')
+  const validIdx = activeIdx >= 0 ? activeIdx : steps.length ? 0 : -1
   const currentKey = validIdx >= 0 ? steps[validIdx].key : null
-  const isFirstOpen = validIdx === 0
 
   const nodes = []
   const edges = []
 
   let y = 0
 
-  // GOAL node
+  // ── Goal node ────────────────────────────────────────────────────────────
   nodes.push(createGoalNode('goal', summary.goal, y))
   y += GOAL_H + GOAL_GAP
   let lastId = 'goal'
@@ -143,6 +163,9 @@ export function buildVisualRoadmap(path, profile, collapsedMilestones, onResourc
     const isCollapsed = collapsed.has(m.number)
     const mTitle = m.title || `Milestone ${m.number}`
 
+    const isMilCurrent = milestoneIsCurrent(summary, m)
+    const isMilCompleted = milestoneIsCompleted(m)
+
     nodes.push(
       createMilestoneNode({
         id: mId,
@@ -151,15 +174,20 @@ export function buildVisualRoadmap(path, profile, collapsedMilestones, onResourc
         hours: m.estimated_hours || 0,
         weeks: m.estimated_weeks || 0,
         nodeCount: mNodes.length,
+        completedCount: mNodes.filter(
+          (n) => n.status === 'completed' || n.status === 'skipped'
+        ).length,
         y,
-        isCurrent: milestoneIsCurrent(summary, m),
-        isCompleted: milestoneIsCompleted(m),
+        isCurrent: isMilCurrent,
+        isCompleted: isMilCompleted,
         isCollapsed,
         collapsedCount: mNodes.length,
       })
     )
-    edges.push(connector(lastId, mId, '#27272a', false))
-    y += MIL_H + 22
+
+    // Edge into milestone header — gold if it's the current milestone
+    edges.push(connector(lastId, mId, isMilCurrent ? '#FACC15' : '#3f3f46', false))
+    y += MIL_H + 18
     lastId = mId
 
     if (isCollapsed) {
@@ -170,9 +198,31 @@ export function buildVisualRoadmap(path, profile, collapsedMilestones, onResourc
     for (let si = 0; si < mNodes.length; si++) {
       const s = mNodes[si]
       const isCurrent = s.key === currentKey
-      const isNext = !isCurrent && currentKey === null && isFirstOpen && si === 0
-      nodes.push(createResourceNode({ id: s.key, n: s, y, isCurrent, isNext, onResourceClick }))
-      edges.push(connector(lastId, s.key, isCurrent ? '#FACC15' : '#27272a', isCurrent))
+      const isCompleted = s.status === 'completed'
+      const isSkipped = s.status === 'skipped'
+      const isLocked = s.status === 'locked'
+
+      nodes.push(
+        createResourceNode({
+          id: s.key,
+          n: s,
+          y,
+          isCurrent,
+          isCompleted,
+          isSkipped,
+          isLocked,
+          onResourceClick,
+        })
+      )
+
+      // Active-path edges in gold; completed chain in emerald; others neutral
+      const edgeColor = isCurrent
+        ? '#FACC15'
+        : isCompleted
+        ? '#34d399'
+        : '#3f3f46'
+
+      edges.push(connector(lastId, s.key, edgeColor, isCurrent))
       y += NODE_H + V_GAP
       lastId = s.key
     }
@@ -185,10 +235,11 @@ export function buildVisualRoadmap(path, profile, collapsedMilestones, onResourc
       createMilestoneNode({
         id: 'milestone-none',
         number: 1,
-        title: 'Roadmap Graph Initializing',
+        title: 'Roadmap Initializing',
         hours: 0,
         weeks: 0,
         nodeCount: 0,
+        completedCount: 0,
         y,
         isCurrent: false,
         isCompleted: false,
@@ -201,6 +252,8 @@ export function buildVisualRoadmap(path, profile, collapsedMilestones, onResourc
   return { nodes, edges, summary, currentKey, totalHeight: y }
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
 function connector(source, target, color, animated) {
   return {
     id: `e-${source}-${target}`,
@@ -208,8 +261,8 @@ function connector(source, target, color, animated) {
     target,
     type: 'smoothstep',
     animated,
-    style: { stroke: color, strokeWidth: animated ? 2.5 : 1.5 },
-    markerEnd: { type: 'arrowclosed', color, width: 14, height: 14 },
+    style: { stroke: color, strokeWidth: animated ? 2 : 1.5 },
+    markerEnd: { type: 'arrowclosed', color, width: 12, height: 12 },
   }
 }
 
@@ -224,7 +277,7 @@ function createGoalNode(id, label, y) {
 }
 
 function createMilestoneNode({
-  id, number, title, hours, weeks, nodeCount, y,
+  id, number, title, hours, weeks, nodeCount, completedCount, y,
   isCurrent, isCompleted, isCollapsed, collapsedCount,
 }) {
   return {
@@ -237,6 +290,7 @@ function createMilestoneNode({
       hours: hours || 0,
       weeks: weeks || 0,
       nodeCount,
+      completedCount: completedCount || 0,
       isCurrent,
       isCompleted,
       isCollapsed,
@@ -246,7 +300,7 @@ function createMilestoneNode({
   }
 }
 
-function createResourceNode({ id, n, y, isCurrent, isNext, onResourceClick }) {
+function createResourceNode({ id, n, y, isCurrent, isCompleted, isSkipped, isLocked, onResourceClick }) {
   return {
     id,
     type: 'resource',
@@ -255,12 +309,15 @@ function createResourceNode({ id, n, y, isCurrent, isNext, onResourceClick }) {
       ...n,
       nodeKey: id,
       isCurrent,
-      isNext,
+      isCompleted,
+      isSkipped,
+      isLocked,
       status: n.status || 'locked',
       estimated_hours: n.estimated_hours || 0,
+      skills: Array.isArray(n.skills) ? n.skills : [],
+      resources: Array.isArray(n.resources) ? n.resources : [],
       onNodeClick: onResourceClick ? (d) => onResourceClick(d) : undefined,
     },
     draggable: false,
   }
 }
-
