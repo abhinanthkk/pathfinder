@@ -30,6 +30,7 @@ def init_db():
     _ensure_column("users", "name")
     _ensure_column("users", "email")
     _ensure_column("users", "password_hash")
+    _ensure_column("users", "clerk_user_id", "VARCHAR")
     # PathNode: resources/skills columns for new features
     _ensure_column("path_nodes", "description", "TEXT DEFAULT ''")
     _ensure_column("path_nodes", "skills", "TEXT DEFAULT '[]'")

@@ -20,6 +20,7 @@ class User(Base):
     name = Column(String, nullable=False, default="User")
     email = Column(String, unique=True, index=True, nullable=True)
     password_hash = Column(String, nullable=True)
+    clerk_user_id = Column(String, unique=True, index=True, nullable=True)
     created_at = Column(DateTime, default=utcnow)
 
     profile = relationship("LearnerProfile", back_populates="user", uselist=False)
