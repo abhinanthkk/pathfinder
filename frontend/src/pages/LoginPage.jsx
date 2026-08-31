@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { SignIn } from '@clerk/react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { AuthShell } from '../components/layout/AuthShell'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
+import { clerkEnabled, pathfinderAppearance } from '../components/auth/clerkTheme'
 
-const LoginPage = () => {
+const LegacyLogin = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState({})
@@ -104,5 +106,25 @@ const LoginPage = () => {
   )
 }
 
-export default LoginPage
+const LoginPage = () => {
+  if (clerkEnabled) {
+    return (
+      <AuthShell
+        tag="AUTH / LOGIN"
+        title="WELCOME BACK"
+        subtitle="Authenticate to access your active engineering roadmap."
+      >
+        <SignIn
+          routing="hash"
+          appearance={pathfinderAppearance}
+          signUpUrl="/signup"
+          fallbackRedirectUrl="/dashboard"
+          forceRedirectUrl="/dashboard"
+        />
+      </AuthShell>
+    )
+  }
+  return <LegacyLogin />
+}
 
+export default LoginPage
