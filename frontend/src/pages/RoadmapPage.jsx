@@ -9,7 +9,7 @@ import PropTypes from 'prop-types'
 import {
   Map, RefreshCw, Target, Clock, Check, X, Play, SkipForward,
   Lightbulb, ChevronRight, ChevronDown, ExternalLink, Lock,
-  CheckCircle2, Minus, BookOpen,
+  CheckCircle2, Minus,
 } from 'lucide-react'
 import { AppShell } from '../components/layout/AppShell'
 import { PageHeader } from '../components/shared/PageHeader'
@@ -21,7 +21,6 @@ import { Spinner } from '../components/ui/Spinner'
 import { RoadmapSwitcher } from '../components/roles/RoadmapSwitcher'
 import useUserStore from '../store/useUserStore'
 import usePathStore from '../store/usePathStore'
-import useGoalsStore from '../store/useGoalsStore'
 import { useToast } from '../context/ToastContext'
 import api from '../services/api'
 import { skillLabel } from '../utils/labels'
@@ -449,8 +448,6 @@ function NodeInspector({
   const isCompleted  = node.status === 'completed'
   const isCurrent    = node.isCurrent
   const isSkipped    = node.status === 'skipped'
-  const isAvailable  = node.status === 'available'
-  const isLocked     = node.status === 'locked'
   const skills       = Array.isArray(node.skills) ? node.skills : []
   const resources    = Array.isArray(node.resources) ? node.resources : []
 
