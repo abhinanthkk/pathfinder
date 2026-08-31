@@ -1,752 +1,938 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import PropTypes from 'prop-types'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Map, RefreshCw, Target, Clock, Check, Lock, SkipForward,
-  Play, ChevronDown, ChevronRight, X, Lightbulb, ExternalLink,
-  BookOpen, CheckCircle2,
+  ReactFlow, ReactFlowProvider, Background, Controls,
+  useNodesState, useEdgesState, useReactFlow, Handle, Position,
+} from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
+import PropTypes from 'prop-types'
+import {
+  Map, RefreshCw, Target, Clock, Check, X, Play, SkipForward,
+  Lightbulb, ChevronRight, ChevronDown, ExternalLink, Lock,
+  CheckCircle2, Minus, BookOpen,
 } from 'lucide-react'
 import { AppShell } from '../components/layout/AppShell'
 import { PageHeader } from '../components/shared/PageHeader'
 import { Button } from '../components/ui/Button'
-import { Card } from '../components/ui/Card'
-import { ProgressBar } from '../components/ui/Progress'
-import { Spinner } from '../components/ui/Spinner'
+import { StatusBadge } from '../components/shared/StatusBadge'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorState } from '../components/ui/ErrorState'
+import { Spinner } from '../components/ui/Spinner'
+import { RoadmapSwitcher } from '../components/roles/RoadmapSwitcher'
 import useUserStore from '../store/useUserStore'
 import usePathStore from '../store/usePathStore'
 import useGoalsStore from '../store/useGoalsStore'
 import { useToast } from '../context/ToastContext'
-import { RoadmapSwitcher } from '../components/roles/RoadmapSwitcher'
 import api from '../services/api'
-import { EASE } from '../lib/motion'
-import { getStepResources, resourceTone, resourceMark } from '../utils/resources'
+import { skillLabel } from '../utils/labels'
+import {
+  NODE_W, NODE_H, MIL_W,
+  buildVisualRoadmap,
+  computeSummary,
+} from '../utils/roadmapLayout'
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function statusMeta(status) {
-  switch (status) {
-    case 'completed':
-      return {
-        icon: CheckCircle2,
-        label: 'Completed',
-        color: 'text-emerald-400',
-        border: 'border-emerald-500/40',
-        bg: 'bg-emerald-500/[0.04]',
-      }
-    case 'in_progress':
-    case 'current':
-      return {
-        icon: Play,
-        label: 'You are here',
-        color: 'text-primary-400',
-        border: 'border-primary-400/50',
-        bg: 'bg-primary-400/[0.05]',
-      }
-    case 'skipped':
-      return {
-        icon: SkipForward,
-        label: 'Skipped',
-        color: 'text-surface-500',
-        border: 'border-surface-800',
-        bg: 'bg-surface-950/60',
-      }
-    case 'locked':
-      return {
-        icon: Lock,
-        label: 'Locked',
-        color: 'text-surface-600',
-        border: 'border-surface-800',
-        bg: 'bg-surface-950/40',
-      }
-    default:
-      return {
-        icon: ChevronRight,
-        label: 'Next',
-        color: 'text-surface-300',
-        border: 'border-surface-700',
-        bg: 'bg-surface-900/50',
-      }
-  }
+// ─────────────────────────────────────────────────────────────────────────────
+// PropType shapes
+// ─────────────────────────────────────────────────────────────────────────────
+const GOAL_DATA_SHAPE = { label: PropTypes.string }
+const MILESTONE_DATA_SHAPE = {
+  number: PropTypes.number,
+  title: PropTypes.string,
+  hours: PropTypes.number,
+  weeks: PropTypes.number,
+  nodeCount: PropTypes.number,
+  completedCount: PropTypes.number,
+  isCurrent: PropTypes.bool,
+  isCompleted: PropTypes.bool,
+  isCollapsed: PropTypes.bool,
+  onToggle: PropTypes.func,
+}
+const RESOURCE_DATA_SHAPE = {
+  title: PropTypes.string,
+  status: PropTypes.string,
+  estimated_hours: PropTypes.number,
+  isCurrent: PropTypes.bool,
+  isSkipped: PropTypes.bool,
+  isLocked: PropTypes.bool,
+  onNodeClick: PropTypes.func,
 }
 
-// ─── Vertical Arrow ────────────────────────────────────────────────────────────
-
-function Arrow() {
+// ─────────────────────────────────────────────────────────────────────────────
+// Goal node — top of graph, shows the target objective
+// ─────────────────────────────────────────────────────────────────────────────
+function GoalNode({ data }) {
   return (
-    <div className="flex justify-center py-0.5" aria-hidden="true">
-      <div className="w-px h-6 bg-gradient-to-b from-surface-700 to-surface-800" />
+    <div
+      className="rounded-[6px] border border-primary-400/50 bg-surface-900 px-6 py-4 text-center shadow-panel"
+      style={{ width: NODE_W }}
+    >
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{ background: '#FACC15', border: 'none', width: 6, height: 6 }}
+      />
+      <div className="flex items-center justify-center gap-1.5 font-mono text-[9px] font-medium uppercase tracking-widest text-primary-500">
+        <Target className="h-3 w-3" aria-hidden="true" />
+        <span>Target Objective</span>
+      </div>
+      <div className="mt-1.5 text-[15px] font-semibold leading-snug text-white">
+        {data.label}
+      </div>
     </div>
   )
 }
+GoalNode.propTypes = { data: PropTypes.shape(GOAL_DATA_SHAPE) }
 
-// ─── Step Node ─────────────────────────────────────────────────────────────────
-
-function StepNode({ step, onClick }) {
-  const meta = statusMeta(step.status)
-  const Icon = meta.icon
-  const isLocked = step.status === 'locked'
-  const isSkipped = step.status === 'skipped'
-  const isCurrent = step.status === 'in_progress' || step.status === 'current'
-  const resources = getStepResources(step)
+// ─────────────────────────────────────────────────────────────────────────────
+// Milestone node — collapsible section header with progress ring
+// ─────────────────────────────────────────────────────────────────────────────
+function MilestoneNode({ data }) {
+  const isCompleted = data.isCompleted
+  const isCurrent   = data.isCurrent
+  const pct =
+    data.nodeCount > 0
+      ? Math.round(((data.completedCount || 0) / data.nodeCount) * 100)
+      : 0
 
   return (
-    <motion.button
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: EASE }}
-      onClick={() => !isLocked && onClick(step)}
-      disabled={isLocked}
-      className={`group relative w-full rounded-[12px] border px-4 py-3.5 text-left transition-all ${meta.border} ${meta.bg} ${
-        isLocked ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:-translate-y-0.5 hover:shadow-glow-hover'
-      } ${isSkipped ? 'opacity-55' : ''}`}
-      aria-disabled={isLocked}
+    <div
+      className={`flex cursor-pointer select-none items-center gap-4 rounded-[6px] border px-4 py-3 transition-all duration-200 ${
+        isCurrent
+          ? 'border-primary-400/80 bg-surface-900 shadow-[0_0_0_1px_rgba(250,204,21,0.12)]'
+          : isCompleted
+          ? 'border-emerald-500/30 bg-surface-950/80'
+          : 'border-surface-700 bg-surface-950/70 hover:border-surface-600'
+      }`}
+      style={{ width: MIL_W }}
+      onClick={data.onToggle}
+      role="button"
+      tabIndex={0}
+      aria-expanded={!data.isCollapsed}
+      aria-label={`${data.title} — click to ${data.isCollapsed ? 'expand' : 'collapse'}`}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          data.onToggle?.()
+        }
+      }}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className={`flex items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-wider ${meta.color}`}>
-            <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
-            <span>{meta.label}</span>
-            {isCurrent && (
-              <span className="relative ml-1.5 flex items-center gap-1.5 rounded-full border border-primary-400/40 bg-primary-400/10 px-2 py-0.5 font-mono text-[9px] font-bold text-primary-400">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-400 opacity-70" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary-400" />
-                </span>
-                Active
-              </span>
-            )}
-          </div>
+      <Handle
+        type="target"
+        position={Position.Top}
+        style={{ background: isCurrent ? '#FACC15' : '#3f3f46', border: 'none', width: 6, height: 6 }}
+      />
 
-          <h3
-            className={`mt-1.5 text-sm font-semibold leading-snug ${
-              isSkipped ? 'text-surface-500 line-through' : 'text-white'
+      {/* Progress ring or status badge */}
+      <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
+        {isCompleted ? (
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
+            <Check className="h-4 w-4 stroke-[2.5]" aria-hidden="true" />
+          </div>
+        ) : (
+          <div
+            className={`flex h-7 w-7 items-center justify-center rounded-full font-mono text-xs font-semibold ${
+              isCurrent
+                ? 'bg-primary-400/15 text-primary-400'
+                : 'bg-surface-800 text-surface-400'
             }`}
           >
-            {step.title}
-          </h3>
-        </div>
-
-        <span className="flex shrink-0 items-center gap-1 font-mono text-[10px] text-surface-500">
-          <Clock className="h-3 w-3" aria-hidden="true" />
-          <span>{step.estimated_hours || '?'}h</span>
-        </span>
+            {data.number}
+          </div>
+        )}
       </div>
 
-      {!isLocked && resources.length > 0 && (
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {resources.slice(0, 3).map((res) => (
-            <a
-              key={res.source + res.url}
-              href={res.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] transition-all ${resourceTone(res.source)}`}
-              title={res.title}
-            >
-              <span>{resourceMark(res.source).glyph}</span>
-              <span>{res.source}</span>
-            </a>
-          ))}
-        </div>
-      )}
-    </motion.button>
-  )
-}
-StepNode.propTypes = {
-  step: PropTypes.object.isRequired,
-  onClick: PropTypes.func.isRequired,
-}
-
-// ─── Milestone Header ──────────────────────────────────────────────────────────
-
-function MilestoneHeader({ milestone, steps, collapsed, onToggle }) {
-  const total = steps.length
-  const completed = steps.filter((s) => s.status === 'completed').length
-  const allDone = completed === total && total > 0
-  const isCurrent = steps.some((s) => s.status === 'in_progress' || s.status === 'current')
-
-  return (
-    <button
-      onClick={onToggle}
-      className={`group w-full rounded-[12px] border px-5 py-4 text-left transition-all ${
-        allDone
-          ? 'border-emerald-500/30 bg-emerald-500/[0.04]'
-          : isCurrent
-            ? 'border-primary-400/50 bg-primary-400/[0.05] shadow-glow'
-            : 'border-surface-800 bg-surface-925 hover:border-surface-700'
-      }`}
-      aria-expanded={!collapsed}
-    >
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-3.5">
-          <span
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border font-mono text-xs font-bold transition-transform group-hover:scale-105 ${
-              allDone
-                ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
-                : isCurrent
-                  ? 'border-primary-400/60 bg-primary-400/10 text-primary-400'
-                  : 'border-surface-700 bg-surface-900 text-surface-400'
-            }`}
-          >
-            {String(milestone.number).padStart(2, '0')}
+      {/* Title + time estimate */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[9px] font-medium uppercase tracking-widest text-surface-500">
+            Milestone {String(data.number).padStart(2, '0')}
           </span>
-          <div className="min-w-0">
-            <div className={`font-mono text-[10px] uppercase tracking-wider ${allDone ? 'text-emerald-400/80' : isCurrent ? 'text-primary-400/80' : 'text-surface-500'}`}>
-              Milestone {String(milestone.number).padStart(2, '0')}
-            </div>
-            <div className="truncate text-sm font-semibold text-white">{milestone.title}</div>
-          </div>
+          {isCurrent && (
+            <span className="inline-flex items-center rounded-full bg-primary-400/10 px-1.5 py-0.5 font-mono text-[8px] font-medium uppercase tracking-wider text-primary-400">
+              Current
+            </span>
+          )}
         </div>
+        <p className="truncate text-xs font-medium text-white">{data.title}</p>
+      </div>
 
-        <div className="flex shrink-0 items-center gap-3">
-          <span className="font-mono text-[11px] text-surface-400">
-            {completed}/{total} steps
-          </span>
-          {allDone && <span className="font-mono text-xs text-emerald-400" aria-hidden="true">🏆</span>}
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4 text-surface-500" />
+      {/* Stats + collapse arrow */}
+      <div className="flex shrink-0 items-center gap-3">
+        <div className="text-right font-mono text-[10px] text-surface-500">
+          <div>{data.completedCount ?? 0}/{data.nodeCount} steps</div>
+          {pct > 0 && <div className="text-surface-400">{pct}%</div>}
+        </div>
+        <div className="text-surface-500 transition-transform duration-150">
+          {data.isCollapsed ? (
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
           ) : (
-            <ChevronDown className="h-4 w-4 text-surface-500" />
+            <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
           )}
         </div>
       </div>
 
-      <div className="mt-3">
-        <ProgressBar value={completed} max={total} tone={allDone ? 'emerald' : 'gold'} className="h-1" />
-      </div>
-    </button>
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{ background: isCurrent ? '#FACC15' : '#3f3f46', border: 'none', width: 6, height: 6 }}
+      />
+    </div>
   )
 }
-MilestoneHeader.propTypes = {
-  milestone: PropTypes.object.isRequired,
-  steps: PropTypes.array.isRequired,
-  collapsed: PropTypes.bool.isRequired,
-  onToggle: PropTypes.func.isRequired,
-}
+MilestoneNode.propTypes = { data: PropTypes.shape(MILESTONE_DATA_SHAPE) }
 
-// ─── Final Project / Completion Node ───────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Resource node — interactive card for a learning step
+// ─────────────────────────────────────────────────────────────────────────────
+function ResourceNode({ data }) {
+  const isCurrent   = data.isCurrent
+  const isCompleted = data.status === 'completed'
+  const isSkipped   = data.status === 'skipped'
+  const isLocked    = data.status === 'locked'
 
-function FinalProjectNode({ name, reached, onClick }) {
+  let containerCls =
+    'border-surface-800 bg-surface-900 hover:border-surface-700 hover:bg-surface-900/90'
+  if (isCompleted) containerCls = 'border-emerald-500/20 bg-surface-950/90 hover:border-emerald-500/30'
+  if (isCurrent)   containerCls = 'border-primary-400/80 bg-surface-900 shadow-[0_0_0_1px_rgba(250,204,21,0.2)]'
+  if (isSkipped)   containerCls = 'border-surface-700/50 bg-surface-950/50 opacity-50'
+  if (isLocked && !isCurrent) containerCls = 'border-surface-800 bg-surface-950/60 opacity-60 cursor-default'
+
+  const skills = Array.isArray(data.skills) ? data.skills.slice(0, 3) : []
+
   return (
-    <motion.button
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: EASE }}
-      onClick={onClick}
-      className={`group mx-auto w-full max-w-xl rounded-[12px] border px-6 py-5 text-center transition-all ${
-        reached
-          ? 'border-emerald-500/50 bg-emerald-500/[0.05] hover:-translate-y-0.5 hover:shadow-glow-hover'
-          : 'border-surface-800 bg-surface-925 hover:border-surface-700'
-      }`}
-      aria-label={`Final project: ${name}`}
+    <div
+      className={`cursor-pointer rounded-[6px] border px-4 py-3 transition-all duration-150 ${containerCls}`}
+      style={{ width: NODE_W }}
+      onClick={() => !isLocked && data.onNodeClick?.(data)}
+      role={isLocked ? 'presentation' : 'button'}
+      tabIndex={isLocked ? -1 : 0}
+      aria-label={isLocked ? `${data.title} — locked` : `Inspect: ${data.title}`}
+      onKeyDown={(e) => {
+        if (!isLocked && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          data.onNodeClick?.(data)
+        }
+      }}
     >
-      <div
-        className={`flex items-center justify-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-widest ${
-          reached ? 'text-emerald-400' : 'text-surface-500'
-        }`}
-      >
-        {reached ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> : <Lock className="h-3.5 w-3.5" aria-hidden="true" />}
-        <span>{reached ? 'Completed' : 'Locked'}</span>
+      <Handle
+        type="target"
+        position={Position.Top}
+        style={{ background: isCurrent ? '#FACC15' : '#27272a', border: 'none', width: 6, height: 6 }}
+      />
+
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          {/* Header row: status icon + step title */}
+          <div className="flex items-center gap-1.5">
+            {isCompleted && (
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden="true" />
+            )}
+            {isCurrent && (
+              <Play className="h-3 w-3 shrink-0 fill-primary-400 text-primary-400" aria-hidden="true" />
+            )}
+            {isLocked && !isCurrent && (
+              <Lock className="h-3 w-3 shrink-0 text-surface-600" aria-hidden="true" />
+            )}
+            {isSkipped && (
+              <Minus className="h-3 w-3 shrink-0 text-surface-500" aria-hidden="true" />
+            )}
+            <p
+              className={`truncate text-xs font-semibold ${
+                isCompleted
+                  ? 'text-surface-300'
+                  : isLocked
+                  ? 'text-surface-500'
+                  : 'text-white'
+              }`}
+            >
+              {data.title}
+            </p>
+          </div>
+
+          {/* Skill tags */}
+          {skills.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {skills.map((skill) => (
+                <span
+                  key={skill}
+                  className="rounded bg-surface-800/80 px-1.5 py-0.5 font-mono text-[9px] text-surface-400"
+                >
+                  {skillLabel(skill)}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right column: status badge + duration */}
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <StatusBadge status={data.status || 'locked'} />
+          {data.estimated_hours ? (
+            <span className="font-mono text-[9px] text-surface-500">
+              {data.estimated_hours}h
+            </span>
+          ) : null}
+        </div>
       </div>
-      <div className="mt-1.5 text-sm font-semibold text-white">
-        <span aria-hidden="true">🎓</span> Final Project
-      </div>
-      <div className={`mt-0.5 text-xs ${reached ? 'text-surface-300' : 'text-surface-500'}`}>{name}</div>
-      {!reached && (
-        <div className="mt-0.5 text-[10px] text-surface-600">Complete all milestones to unlock</div>
-      )}
-    </motion.button>
+
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{ background: isCurrent ? '#FACC15' : '#27272a', border: 'none', width: 6, height: 6 }}
+      />
+    </div>
   )
 }
-FinalProjectNode.propTypes = {
-  name: PropTypes.string.isRequired,
-  reached: PropTypes.bool.isRequired,
-  onClick: PropTypes.func.isRequired,
+ResourceNode.propTypes = { data: PropTypes.shape(RESOURCE_DATA_SHAPE) }
+
+const NODE_TYPES = {
+  goal: GoalNode,
+  milestone: MilestoneNode,
+  resource: ResourceNode,
 }
 
-// ─── Detail Panel ──────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Inner ReactFlow wrapper (needs useReactFlow inside ReactFlowProvider)
+// ─────────────────────────────────────────────────────────────────────────────
+function RoadmapFlow({
+  rfNodes,
+  edges,
+  onNodesChange,
+  onEdgesChange,
+  currentKey,
+  onMilestoneClick,
+  onHoverNode,
+}) {
+  const { setCenter } = useReactFlow()
+  const [fitted, setFitted] = useState(false)
+  const nodeTypes = useMemo(() => NODE_TYPES, [])
 
-function DetailPanel({ step, onClose, onMarkComplete, onSkip, onExplain, explaining, explanation }) {
-  if (!step) return null
-  const meta = statusMeta(step.status)
-  const Icon = meta.icon
-  const resources = getStepResources(step)
+  // Auto-center on current node on initial load
+  useEffect(() => {
+    if (fitted || !rfNodes.length) return
+    const timer = setTimeout(() => {
+      const activeNode = rfNodes.find((n) => n.id === currentKey) || rfNodes[0]
+      if (activeNode) {
+        try {
+          setCenter(
+            (activeNode.position?.x || 0) + NODE_W / 2,
+            (activeNode.position?.y || 0) + NODE_H / 2,
+            { zoom: 0.9, duration: 400 }
+          )
+        } catch {
+          // viewport not mounted yet
+        }
+      }
+      setFitted(true)
+    }, 150)
+    return () => clearTimeout(timer)
+  }, [rfNodes, fitted, currentKey, setCenter])
 
   return (
-    <div className="fixed inset-0 z-[80] flex justify-end" role="dialog" aria-modal="true" aria-label={`Details: ${step.title}`}>
-      <motion.div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
+    <ReactFlow
+      nodes={rfNodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      nodeTypes={nodeTypes}
+      onNodeClick={(_, node) => node.type === 'milestone' && onMilestoneClick(node)}
+      onNodeMouseEnter={(_, node) => node.type === 'resource' && onHoverNode(node.id)}
+      onNodeMouseLeave={() => onHoverNode(null)}
+      minZoom={0.3}
+      maxZoom={1.8}
+      proOptions={{ hideAttribution: true }}
+      fitViewOptions={{ padding: 0.15 }}
+    >
+      <Background color="#18181b" gap={24} size={1} />
+      <Controls
+        position="bottom-left"
+        showInteractive={false}
+        className="!rounded-[4px] !border !border-surface-800 !bg-surface-950 !shadow-panel"
+      />
+    </ReactFlow>
+  )
+}
+RoadmapFlow.propTypes = {
+  rfNodes: PropTypes.array.isRequired,
+  edges: PropTypes.array.isRequired,
+  onNodesChange: PropTypes.func.isRequired,
+  onEdgesChange: PropTypes.func.isRequired,
+  currentKey: PropTypes.string,
+  onMilestoneClick: PropTypes.func.isRequired,
+  onHoverNode: PropTypes.func.isRequired,
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Telemetry bar — four-metric summary above the graph
+// ─────────────────────────────────────────────────────────────────────────────
+function ProgressSummary({ summary }) {
+  const bar = `${Math.min(100, Math.max(0, summary.progress))}%`
+
+  return (
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-[8px] border border-surface-800 bg-surface-800 lg:grid-cols-4">
+      {/* Goal */}
+      <div className="bg-surface-950 p-4">
+        <p className="font-mono text-[9px] uppercase tracking-widest text-surface-500">
+          Target Goal
+        </p>
+        <p className="mt-1 truncate text-sm font-semibold text-white">
+          {summary.goal}
+        </p>
+        <p className="mt-0.5 font-mono text-[10px] text-surface-500">
+          {Math.round(summary.totalHours)}h total
+        </p>
+      </div>
+
+      {/* Progress */}
+      <div className="bg-surface-950 p-4">
+        <div className="flex items-center justify-between">
+          <p className="font-mono text-[9px] uppercase tracking-widest text-surface-500">
+            Progress
+          </p>
+          <span className="font-mono text-sm font-semibold text-primary-400">
+            {summary.progress}%
+          </span>
+        </div>
+        <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-surface-800">
+          <div
+            className="h-full rounded-full bg-primary-400 transition-all duration-500"
+            style={{ width: bar }}
+          />
+        </div>
+        <p className="mt-1.5 font-mono text-[10px] text-surface-500">
+          {summary.completedSteps}/{summary.totalSteps} steps completed
+        </p>
+      </div>
+
+      {/* Remaining */}
+      <div className="bg-surface-950 p-4">
+        <p className="font-mono text-[9px] uppercase tracking-widest text-surface-500">
+          Remaining
+        </p>
+        <p className="mt-1 text-sm font-semibold text-white">
+          {Math.round(summary.remainingHours)}h
+        </p>
+        <p className="mt-0.5 font-mono text-[10px] text-surface-500">
+          {summary.totalSteps - summary.completedSteps - (summary.skippedSteps || 0)} steps to go
+        </p>
+      </div>
+
+      {/* Current phase */}
+      <div className="bg-surface-950 p-4">
+        <p className="font-mono text-[9px] uppercase tracking-widest text-surface-500">
+          Active Phase
+        </p>
+        <p className="mt-1 truncate text-sm font-semibold text-white">
+          {summary.currentMilestone}
+        </p>
+        <p className="mt-0.5 font-mono text-[10px] text-surface-500">
+          Phase {summary.currentMilestoneNumber}
+        </p>
+      </div>
+    </div>
+  )
+}
+ProgressSummary.propTypes = { summary: PropTypes.object.isRequired }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Node Inspector Drawer — slides in from right when a resource node is clicked
+// ─────────────────────────────────────────────────────────────────────────────
+function NodeInspector({
+  node,
+  onClose,
+  onProgress,
+  onExplain,
+  explanationLoading,
+  explanation,
+  showExplanation,
+}) {
+  const isCompleted  = node.status === 'completed'
+  const isCurrent    = node.isCurrent
+  const isSkipped    = node.status === 'skipped'
+  const isAvailable  = node.status === 'available'
+  const isLocked     = node.status === 'locked'
+  const skills       = Array.isArray(node.skills) ? node.skills : []
+  const resources    = Array.isArray(node.resources) ? node.resources : []
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex justify-end"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Node Inspector"
+    >
+      {/* Scrim */}
+      <div
+        className="fixed inset-0 bg-black/55 backdrop-blur-[2px]"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      <motion.div
-        initial={{ x: 420 }}
-        animate={{ x: 0 }}
-        exit={{ x: 420 }}
-        transition={{ type: 'spring', stiffness: 380, damping: 40 }}
-        className="relative flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-surface-800 bg-surface-925 shadow-panel"
-      >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-surface-800/80 bg-surface-925/95 px-5 py-4 backdrop-blur-md">
-          <div className="min-w-0">
-            <p className="section-label text-primary-400">Step details</p>
-            <h2 className="mt-0.5 truncate text-base font-semibold leading-snug text-white">{step.title}</h2>
+      {/* Panel */}
+      <div className="relative z-10 flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-surface-800 bg-surface-950 shadow-2xl">
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-start justify-between border-b border-surface-800 bg-surface-950/95 px-6 py-5 backdrop-blur-sm">
+          <div className="min-w-0 pr-3">
+            <p className="font-mono text-[9px] font-medium uppercase tracking-widest text-primary-400">
+              Node Inspector
+            </p>
+            <h2 className="mt-1 text-base font-semibold text-white">
+              {node.title}
+            </h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded-[8px] p-1.5 text-surface-400 transition-colors hover:bg-surface-800 hover:text-white focus:outline-none"
-            aria-label="Close panel"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] border border-surface-800 text-surface-400 hover:border-surface-700 hover:text-white"
+            aria-label="Close inspector"
           >
-            <X className="h-5 w-5" aria-hidden="true" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
-        <div className="flex-1 space-y-6 px-5 py-5">
-          <div className="flex items-center gap-3">
-            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] font-medium uppercase ${meta.border} ${meta.color}`}>
-              <Icon className="h-3 w-3" aria-hidden="true" />
-              {meta.label}
-            </span>
-            <span className="flex items-center gap-1 font-mono text-xs text-surface-400">
-              <Clock className="h-3 w-3" aria-hidden="true" />
-              {step.estimated_hours || '?'} hours estimated
-            </span>
+        {/* Body */}
+        <div className="flex-1 space-y-6 px-6 py-5">
+          {/* Metadata badges */}
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge status={node.status} />
+            {node.estimated_hours ? (
+              <span className="inline-flex items-center gap-1 rounded-[4px] border border-surface-800 bg-surface-900 px-2 py-0.5 font-mono text-[10px] text-surface-400">
+                <Clock className="h-3 w-3" aria-hidden="true" />
+                {node.estimated_hours} hours
+              </span>
+            ) : null}
           </div>
 
-          {step.description && (
-            <p className="text-sm leading-relaxed text-surface-300">{step.description}</p>
+          {/* Description */}
+          {node.description && (
+            <div>
+              <p className="font-mono text-[9px] font-medium uppercase tracking-widest text-surface-500">
+                Description
+              </p>
+              <p className="mt-1.5 text-xs leading-relaxed text-surface-300">
+                {node.description}
+              </p>
+            </div>
           )}
 
-          {step.skills && step.skills.length > 0 && (
+          {/* Skills targeted */}
+          {skills.length > 0 && (
             <div>
-              <p className="section-label mb-2 text-surface-500">Skills covered</p>
-              <div className="flex flex-wrap gap-1.5">
-                {step.skills.map((skill) => (
-                  <span key={skill} className="badge-line font-mono text-[10px]">
-                    {skill}
+              <p className="font-mono text-[9px] font-medium uppercase tracking-widest text-surface-500">
+                Competencies Targeted
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {skills.map((s) => (
+                  <span
+                    key={s}
+                    className="rounded-[4px] border border-surface-800 bg-surface-900 px-2 py-1 font-mono text-[10px] text-surface-300"
+                  >
+                    {skillLabel(s)}
                   </span>
                 ))}
               </div>
             </div>
           )}
 
-          <div>
-            <button
-              onClick={() => onExplain(step)}
-              className="flex w-full items-center gap-2.5 rounded-[10px] border border-surface-700 bg-surface-900/60 px-4 py-3 text-left transition-all hover:border-primary-400/40 hover:bg-surface-900"
-            >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] border border-primary-400/25 bg-primary-400/10 text-primary-400">
-                <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
-              </span>
-              <span className="font-mono text-xs text-surface-300">Why was this recommended?</span>
-            </button>
-            {explanation && (
-              <motion.div
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-2 rounded-[10px] border border-primary-400/20 bg-primary-400/[0.05] px-4 py-3 text-xs leading-relaxed text-surface-300"
-              >
-                {explaining ? (
-                  <div className="flex items-center gap-2 text-surface-500">
-                    <Spinner label="" className="scale-75" /> Generating explanation…
-                  </div>
-                ) : (
-                  explanation
-                )}
-              </motion.div>
-            )}
-          </div>
-
-          {step.prerequisites && step.prerequisites.length > 0 && (
+          {/* Resources list */}
+          {resources.length > 0 && (
             <div>
-              <p className="section-label mb-2 text-surface-500">Prerequisites</p>
-              <ul className="space-y-1.5">
-                {step.prerequisites.map((prereq) => {
-                  const done = typeof prereq === 'object' ? prereq.completed : false
-                  const label = typeof prereq === 'object' ? prereq.title : prereq
-                  return (
-                    <li key={label} className="flex items-center gap-2 text-xs">
-                      {done ? (
-                        <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden="true" />
-                      ) : (
-                        <X className="h-3.5 w-3.5 shrink-0 text-red-400" aria-hidden="true" />
+              <p className="font-mono text-[9px] font-medium uppercase tracking-widest text-surface-500">
+                Recommended Resources
+              </p>
+              <div className="mt-2 space-y-2">
+                {resources.map((res, i) => (
+                  <a
+                    key={i}
+                    href={res.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between rounded-[4px] border border-surface-800 bg-surface-900/60 px-3 py-2.5 transition-colors hover:border-surface-700 hover:bg-surface-900"
+                  >
+                    <div className="min-w-0 flex-1 pr-2">
+                      <p className="truncate text-xs font-medium text-white">
+                        {res.title || res.name || `Resource ${i + 1}`}
+                      </p>
+                      {res.type && (
+                        <p className="font-mono text-[9px] text-surface-500 uppercase">
+                          {res.type}
+                        </p>
                       )}
-                      <span className={done ? 'text-surface-400' : 'text-surface-300'}>{label}</span>
-                    </li>
-                  )
-                })}
-              </ul>
+                    </div>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0 text-surface-500" aria-hidden="true" />
+                  </a>
+                ))}
+              </div>
             </div>
           )}
 
-          <div>
-            <p className="section-label mb-2 text-surface-500">Learning resources</p>
-            <div className="space-y-2">
-              {resources.map((res) => (
-                <a
-                  key={res.source + res.url}
-                  href={res.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`flex items-center justify-between gap-3 rounded-[10px] border px-4 py-2.5 text-xs font-medium transition-all ${resourceTone(res.source)}`}
-                >
-                  <span className="flex items-center gap-2.5">
-                    <span className="font-mono text-sm">{resourceMark(res.source).glyph}</span>
-                    {resourceMark(res.source).label}
-                  </span>
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
-                </a>
-              ))}
-              <a
-                href={`https://www.google.com/search?q=${encodeURIComponent(step.title + ' official documentation')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between gap-3 rounded-[10px] border border-surface-700 bg-surface-900/40 px-4 py-2.5 text-xs font-medium text-surface-300 transition-all hover:bg-surface-800 hover:text-white"
+          {/* AI Explanation Accordion */}
+          <div className="rounded-[6px] border border-surface-800 bg-surface-900/40 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 font-mono text-[9px] font-medium uppercase tracking-widest text-surface-400">
+                <Lightbulb className="h-3.5 w-3.5 text-primary-400" aria-hidden="true" />
+                <span>AI Recommendation Engine</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={onExplain}
+                loading={explanationLoading}
               >
-                <span className="flex items-center gap-2.5">
-                  <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
-                  Official Docs
-                </span>
-                <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
-              </a>
+                {showExplanation ? 'Refresh' : 'Why this?'}
+              </Button>
             </div>
+
+            {showExplanation && (
+              <div className="mt-3 border-t border-surface-800/60 pt-3">
+                {explanationLoading ? (
+                  <div className="py-2">
+                    <Spinner label="Consulting recommendation graph…" size="sm" />
+                  </div>
+                ) : (
+                  <p className="text-xs leading-relaxed text-surface-300">
+                    {explanation}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="sticky bottom-0 border-t border-surface-800/80 bg-surface-925/95 px-5 py-4 backdrop-blur-md">
-          <div className="space-y-2">
-            {step.status !== 'completed' && (
-              <Button onClick={() => onMarkComplete(step)} className="w-full">
-                <Check className="h-4 w-4" aria-hidden="true" />
+        {/* Footer actions */}
+        <div className="sticky bottom-0 border-t border-surface-800 bg-surface-950 px-6 py-4">
+          <p className="mb-3 font-mono text-[9px] font-medium uppercase tracking-widest text-surface-500">
+            Update Node Status
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {!isCompleted && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => onProgress('completed')}
+                className="w-full"
+              >
+                <Check className="h-3.5 w-3.5" aria-hidden="true" />
                 Mark Complete
               </Button>
             )}
-            {step.status !== 'skipped' && step.status !== 'completed' && (
-              <Button onClick={() => onSkip(step)} variant="secondary" className="w-full">
-                <SkipForward className="h-4 w-4" aria-hidden="true" />
-                Skip
+            {isCompleted && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onProgress('in_progress')}
+                className="w-full"
+              >
+                Reopen Step
+              </Button>
+            )}
+            {!isCurrent && !isCompleted && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onProgress('in_progress')}
+                className="w-full"
+              >
+                <Play className="h-3 w-3" aria-hidden="true" />
+                Set Active
+              </Button>
+            )}
+            {!isSkipped && !isCompleted && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onProgress('skipped')}
+                className="w-full"
+              >
+                <SkipForward className="h-3.5 w-3.5" aria-hidden="true" />
+                Skip Node
               </Button>
             )}
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }
-DetailPanel.propTypes = {
-  step: PropTypes.object,
+NodeInspector.propTypes = {
+  node: PropTypes.object.isRequired,
   onClose: PropTypes.func.isRequired,
-  onMarkComplete: PropTypes.func.isRequired,
-  onSkip: PropTypes.func.isRequired,
+  onProgress: PropTypes.func.isRequired,
   onExplain: PropTypes.func.isRequired,
-  explaining: PropTypes.bool,
+  explanationLoading: PropTypes.bool.isRequired,
   explanation: PropTypes.string,
+  showExplanation: PropTypes.bool.isRequired,
 }
 
-// ─── Main Page ─────────────────────────────────────────────────────────────────
-
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Page Component
+// ─────────────────────────────────────────────────────────────────────────────
 export default function RoadmapPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const { profile } = useUserStore()
-  const { path, setPath, updateNodeStatus } = usePathStore()
-  const activePathId = useGoalsStore((s) => s.activePathId)
-  const activeGoal = useGoalsStore((s) =>
-    s.goals.find((g) => g.path_id === s.activePathId && g.status === 'active')
-  )
+  const { path, setPath } = usePathStore()
 
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [collapsedMilestones, setCollapsedMilestones] = useState({})
-  const [selectedStep, setSelectedStep] = useState(null)
-  const [explanation, setExplanation] = useState('')
-  const [explaining, setExplaining] = useState(false)
+  const [rfNodes, setNodes, onNodesChange] = useNodesState([])
+  const [rfEdges, setEdges, onEdgesChange] = useEdgesState([])
+  const [collapsedMilestones, setCollapsedMilestones] = useState([])
+  const [selectedNode, setSelectedNode] = useState(null)
+  const [hoveredNode, setHoveredNode] = useState(null)
+
+  const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
 
+  const [explanation, setExplanation] = useState('')
+  const [explanationLoading, setExplanationLoading] = useState(false)
+  const [showExplanation, setShowExplanation] = useState(false)
+
+  const currentKeyRef = useRef(null)
+
+  // ── Fetch roadmap data ───────────────────────────────────────────────────
   const loadPath = useCallback(async () => {
     setLoading(true)
-    setError(null)
+    setLoadError(false)
     try {
-      const data = await api.getPath(activePathId)
+      const data = await api.getLearningPath()
       setPath(data)
-    } catch (err) {
-      if (err?.response?.status === 404) {
-        setPath(null)
-      } else {
-        setError('Unable to load your learning roadmap. Please try again.')
-      }
+    } catch {
+      setLoadError(true)
+      toast.error('Unable to fetch learning roadmap.')
     } finally {
       setLoading(false)
     }
-  }, [activePathId, setPath])
+  }, [setPath, toast])
+
+  // ── Regenerate roadmap ───────────────────────────────────────────────────
+  const handleRegenerate = useCallback(async () => {
+    setRegenerating(true)
+    try {
+      const data = await api.generateLearningPath({ recalculate: true })
+      setPath(data)
+      toast.success('Learning roadmap recalculated.')
+    } catch {
+      toast.error('Failed to recalculate roadmap.')
+    } finally {
+      setRegenerating(false)
+    }
+  }, [setPath, toast])
 
   useEffect(() => {
     loadPath()
   }, [loadPath])
 
-  const handleRegenerate = async () => {
-    if (!activeGoal?.target_role) {
-      toast.error('No active role to regenerate.')
+  // ── Build React Flow graph from path data ────────────────────────────────
+  useEffect(() => {
+    if (!path?.milestones?.length) return
+
+    const handleResourceClick = (node) => {
+      setShowExplanation(false)
+      setExplanation('')
+      setSelectedNode({ ...node, marker: node.marker || '' })
+    }
+
+    const { nodes, edges, currentKey } = buildVisualRoadmap(
+      path,
+      profile,
+      collapsedMilestones,
+      handleResourceClick
+    )
+    setNodes(nodes)
+    setEdges(edges)
+    currentKeyRef.current = currentKey
+  }, [path, profile, collapsedMilestones, setNodes, setEdges])
+
+  const summary = useMemo(() => computeSummary(path, profile), [path, profile])
+
+  // ── Hover dimming — dim non-adjacent nodes ───────────────────────────────
+  useEffect(() => {
+    if (!hoveredNode) {
+      setNodes((nds) =>
+        nds.map((n) => (n.data ? { ...n, data: { ...n.data, dimmed: undefined } } : n))
+      )
       return
     }
-    setRegenerating(true)
-    try {
-      await useGoalsStore.getState().createGoal({
-        target_role: activeGoal.target_role,
-        goal: activeGoal.role_label || activeGoal.target_role,
-      })
-      await loadPath()
-      toast.success('Roadmap regenerated for this role.')
-    } catch {
-      toast.error('Failed to regenerate roadmap.')
-    } finally {
-      setRegenerating(false)
+    const related = new Set([hoveredNode])
+    for (const e of rfEdges) {
+      if (e.source === hoveredNode) related.add(e.target)
+      if (e.target === hoveredNode) related.add(e.source)
     }
-  }
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.data && n.type !== 'milestone'
+          ? { ...n, data: { ...n.data, dimmed: !related.has(n.id) } }
+          : n
+      )
+    )
+  }, [hoveredNode, rfEdges, setNodes])
 
-  const toggleMilestone = (milestoneNumber) => {
-    setCollapsedMilestones((prev) => ({
-      ...prev,
-      [milestoneNumber]: !prev[milestoneNumber],
-    }))
-  }
+  // ── Milestone collapse toggle ────────────────────────────────────────────
+  const toggleMilestone = useCallback((node) => {
+    const num = node.data?.number
+    if (!num) return
+    setCollapsedMilestones((prev) =>
+      prev.includes(num) ? prev.filter((n) => n !== num) : [...prev, num]
+    )
+  }, [])
 
-  const handleStepClick = (step) => {
-    setSelectedStep(step)
-    setExplanation('')
-    setExplaining(false)
-  }
+  // ── AI explanation ───────────────────────────────────────────────────────
+  const handleExplain = useCallback(async () => {
+    if (!selectedNode) return
+    setExplanationLoading(true)
+    setShowExplanation(true)
+    try {
+      const res = await api.explainRecommendation(selectedNode.resource_id)
+      setExplanation(res.explanation)
+    } catch {
+      setExplanation(
+        `"${selectedNode.title}" was recommended to verify core competency for your career roadmap.`
+      )
+    } finally {
+      setExplanationLoading(false)
+    }
+  }, [selectedNode])
 
-  const handleMarkComplete = async (step) => {
-    if (!step) return
-    if (step.node_id && activePathId) {
+  // ── Progress actions ─────────────────────────────────────────────────────
+  const handleProgress = useCallback(
+    async (status) => {
+      if (!selectedNode) return
       try {
-        await api.completeStep(activePathId, step.node_id)
-        updateNodeStatus(step.node_id, 'completed')
-        setSelectedStep((prev) => (prev ? { ...prev, status: 'completed' } : null))
-        toast.success('Step marked as complete!')
-        useGoalsStore.getState().fetchGoals()
-        await loadPath()
+        const res = await api.updateProgress(selectedNode.resource_id, status)
+        if (res.adaptation) {
+          usePathStore.getState().addAdaptation?.(res.adaptation)
+        }
+        toast.success(`Step marked as ${status.replace('_', ' ')}`)
+        setSelectedNode(null)
+        loadPath()
       } catch {
-        toast.error('Failed to update progress.')
+        toast.error('Unable to update step progress. Please retry.')
       }
-    }
-  }
+    },
+    [selectedNode, toast, loadPath]
+  )
 
-  const handleSkip = async (step) => {
-    if (!step?.node_id || !activePathId) return
-    try {
-      await api.skipStep(activePathId, step.node_id)
-      updateNodeStatus(step.node_id, 'skipped')
-      setSelectedStep((prev) => (prev ? { ...prev, status: 'skipped' } : null))
-      toast.info('Step skipped.')
-      useGoalsStore.getState().fetchGoals()
-      await loadPath()
-    } catch {
-      toast.error('Failed to skip step.')
-    }
-  }
-
-  const handleWhyRecommended = async (step) => {
-    if (!step?.resource_id) return
-    setExplaining(true)
-    setExplanation(' ')
-    try {
-      const res = await api.explainRecommendation(step.resource_id)
-      setExplanation(res?.explanation || res?.message || 'This step helps build foundational skills for your goal.')
-    } catch {
-      setExplanation('This step is recommended as part of a structured progression toward your learning goal.')
-    } finally {
-      setExplaining(false)
-    }
-  }
-
-  const milestones = path?.milestones || []
-
-  const allSteps = milestones.flatMap((m) => m.nodes || [])
-  const completedSteps = allSteps.filter((s) => s.status === 'completed').length
-  const totalSteps = allSteps.length
-  const overallPct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0
-  const goalName =
-    activeGoal?.role_label ||
-    profile?.goal ||
-    profile?.target_role?.replace(/_/g, ' ').toUpperCase() ||
-    'YOUR LEARNING PATH'
-  const estimatedCompletion = path?.estimated_completion || null
-
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <AppShell>
-      <div className="space-y-6">
-        <PageHeader
-          tag="Roadmap"
-          icon={Map}
-          title="Learning Roadmap"
-          description="Your personalized, adaptive learning path toward your goal."
-          actions={
-            <Button onClick={handleRegenerate} loading={regenerating} variant="outline">
-              <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              Regenerate Path
-            </Button>
-          }
-        />
+      <PageHeader
+        tag={`Roadmap / ${(profile?.target_role || profile?.goal || 'Engineering').replace(/_/g, ' ')}`}
+        icon={Map}
+        title="Learning Roadmap"
+        description="Your personalized, milestone-driven learning path. Click any node to inspect and act on it."
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleRegenerate}
+            loading={regenerating}
+            disabled={loading}
+          >
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+            Recalculate
+          </Button>
+        }
+      />
 
-        {loading && (
-          <div className="flex min-h-[40vh] items-center justify-center">
-            <Spinner label="Loading your roadmap…" />
+      <div className="mt-6 space-y-5">
+        {/* Role / Goal switcher */}
+        <RoadmapSwitcher />
+
+        {/* Loading state */}
+        {loading && !path && (
+          <div className="flex min-h-[50vh] items-center justify-center rounded-[8px] border border-surface-800 bg-surface-900/40">
+            <Spinner label="Compiling learning graph…" />
           </div>
         )}
 
-        {error && <ErrorState title="Roadmap unavailable" description={error} onRetry={loadPath} />}
-
-        {!loading && !error && milestones.length === 0 && (
-          <EmptyState
-            icon={Map}
-            title="No roadmap generated yet"
-            description="Complete your profile to generate a personalized learning roadmap."
-            action={<Button onClick={() => navigate('/onboarding')}>Set Up Profile</Button>}
+        {/* Error state */}
+        {loadError && !loading && (
+          <ErrorState
+            title="Failed to load roadmap"
+            description="We could not retrieve your learning path. Check your connection and try again."
+            onRetry={loadPath}
           />
         )}
 
-        {!loading && !error && milestones.length > 0 && (
+        {/* Graph + telemetry */}
+        {!loading && !loadError && path?.milestones?.length ? (
           <>
-            <RoadmapSwitcher />
+            {/* Telemetry */}
+            <ProgressSummary summary={summary} />
 
-            {/* Progress summary bar */}
-            <Card accent padded>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Target className="h-4 w-4 shrink-0 text-primary-400" aria-hidden="true" />
-                    <span className="truncate text-sm font-semibold text-white">{goalName}</span>
+            {/* Graph surface */}
+            <div className="overflow-hidden rounded-[8px] border border-surface-800 bg-[#0d0d10] shadow-panel">
+              {/* Graph toolbar */}
+              <div className="flex items-center justify-between border-b border-surface-800 bg-surface-950/90 px-4 py-2.5">
+                <div className="flex items-center gap-2 font-mono text-[10px] text-surface-500">
+                  <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-primary-400" aria-hidden="true" />
+                  Directed learning graph
+                </div>
+                <div className="flex items-center gap-3 font-mono text-[10px] text-surface-600">
+                  <span>Pan · Scroll to zoom</span>
+                </div>
+              </div>
+
+              {/* React Flow viewport */}
+              <div className="h-[68vh] min-h-[400px]">
+                <ReactFlowProvider>
+                  <RoadmapFlow
+                    rfNodes={rfNodes}
+                    edges={rfEdges}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    currentKey={currentKeyRef.current}
+                    onMilestoneClick={toggleMilestone}
+                    onHoverNode={setHoveredNode}
+                  />
+                </ReactFlowProvider>
+              </div>
+
+              {/* Legend */}
+              <div className="flex flex-wrap items-center gap-4 border-t border-surface-800/60 bg-surface-950/80 px-4 py-2.5">
+                {[
+                  { color: 'bg-primary-400', label: 'Active' },
+                  { color: 'bg-emerald-500', label: 'Completed' },
+                  { color: 'bg-surface-600', label: 'Locked' },
+                  { color: 'bg-surface-500/40', label: 'Skipped' },
+                ].map(({ color, label }) => (
+                  <div key={label} className="flex items-center gap-1.5">
+                    <span className={`h-2 w-2 rounded-full ${color}`} aria-hidden="true" />
+                    <span className="font-mono text-[9px] uppercase tracking-wider text-surface-500">
+                      {label}
+                    </span>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-3 font-mono text-[11px] text-surface-400">
-                    <span>{completedSteps} / {totalSteps} steps completed</span>
-                    {estimatedCompletion && (
-                      <>
-                        <span className="text-surface-700" aria-hidden="true">·</span>
-                        <span>Est. completion: {estimatedCompletion}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <span className="stat-number text-2xl font-bold text-primary-400">{overallPct}%</span>
-                  <p className="font-mono text-[9px] uppercase tracking-wider text-surface-500">complete</p>
-                </div>
+                ))}
               </div>
-              <div className="mt-3">
-                <ProgressBar value={overallPct} max={100} tone="gold" className="h-2" />
-              </div>
-            </Card>
-
-            {/* Journey */}
-            <div className="flex flex-col items-center">
-              <div className="mx-auto w-full max-w-xl rounded-[12px] border border-primary-400/50 bg-surface-925 px-6 py-4 text-center shadow-glow">
-                <div className="flex items-center justify-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-widest text-primary-400">
-                  <Target className="h-3 w-3" aria-hidden="true" />
-                  Target Objective
-                </div>
-                <div className="mt-1 text-sm font-semibold text-white">
-                  <span aria-hidden="true">🎯</span> {goalName}
-                </div>
-              </div>
-
-              <Arrow />
-
-              <div className="w-full max-w-xl space-y-0">
-                {milestones.map((milestone, mIdx) => {
-                  const milestoneSteps = milestone.nodes || []
-                  const isCollapsed = !!collapsedMilestones[milestone.number]
-                  const allDone =
-                    milestoneSteps.length > 0 &&
-                    milestoneSteps.every((s) => s.status === 'completed')
-
-                  return (
-                    <div key={milestone.number || mIdx} className="flex flex-col">
-                      <MilestoneHeader
-                        milestone={milestone}
-                        steps={milestoneSteps}
-                        collapsed={isCollapsed}
-                        onToggle={() => toggleMilestone(milestone.number)}
-                      />
-
-                      <AnimatePresence initial={false}>
-                        {!isCollapsed && milestoneSteps.length > 0 && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.28, ease: EASE }}
-                            className="overflow-hidden"
-                          >
-                            <div className="ml-5 border-l border-surface-800 pl-4">
-                              {milestoneSteps.map((step) => (
-                                <div key={step.node_id}>
-                                  <Arrow />
-                                  <StepNode step={step} onClick={handleStepClick} />
-                                </div>
-                              ))}
-
-                              {allDone && (
-                                <>
-                                  <Arrow />
-                                  <div className="flex items-center justify-center gap-2 rounded-[10px] border border-emerald-500/25 bg-emerald-500/[0.05] py-2.5 font-mono text-xs text-emerald-400">
-                                    <span aria-hidden="true">🏆</span>
-                                    <span>Milestone {String(milestone.number).padStart(2, '0')} complete</span>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-
-                      {mIdx < milestones.length - 1 && <Arrow />}
-                    </div>
-                  )
-                })}
-              </div>
-
-              <Arrow />
-              <FinalProjectNode
-                name={`${goalName} Final Project`}
-                reached={overallPct === 100 && totalSteps > 0}
-                onClick={() =>
-                  setSelectedStep({
-                    title: `${goalName} Final Project`,
-                    status: overallPct === 100 ? 'completed' : 'locked',
-                    description:
-                      'Synthesize everything you have learned into a final project. This is the capstone that turns your skills into a portfolio-ready artifact.',
-                    estimated_hours: '—',
-                  })
-                }
-              />
             </div>
           </>
+        ) : (
+          !loading && !loadError && (
+            <EmptyState
+              icon={Map}
+              title="No roadmap configured yet"
+              description="Set up your learning profile to generate a personalized roadmap."
+              action={
+                <Button onClick={() => navigate('/onboarding')}>
+                  Set Up Profile
+                </Button>
+              }
+            />
+          )
         )}
       </div>
 
-      <AnimatePresence>
-        {selectedStep && (
-          <DetailPanel
-            step={selectedStep}
-            onClose={() => setSelectedStep(null)}
-            onMarkComplete={() => handleMarkComplete(selectedStep)}
-            onSkip={() => handleSkip(selectedStep)}
-            onExplain={() => handleWhyRecommended(selectedStep)}
-            explaining={explaining}
-            explanation={explanation}
-          />
-        )}
-      </AnimatePresence>
+      {/* Node inspector drawer */}
+      {selectedNode && (
+        <NodeInspector
+          node={selectedNode}
+          onClose={() => setSelectedNode(null)}
+          onProgress={handleProgress}
+          onExplain={handleExplain}
+          explanationLoading={explanationLoading}
+          explanation={explanation}
+          showExplanation={showExplanation}
+        />
+      )}
     </AppShell>
   )
 }
