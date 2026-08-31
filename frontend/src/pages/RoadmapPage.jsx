@@ -690,7 +690,7 @@ export default function RoadmapPage() {
     setLoading(true)
     setLoadError(false)
     try {
-      const data = await api.getLearningPath()
+      const data = await api.getPath()
       setPath(data)
     } catch {
       setLoadError(true)
@@ -704,7 +704,7 @@ export default function RoadmapPage() {
   const handleRegenerate = useCallback(async () => {
     setRegenerating(true)
     try {
-      const data = await api.generateLearningPath({ recalculate: true })
+      const data = await api.generatePath()
       setPath(data)
       toast.success('Learning roadmap recalculated.')
     } catch {
