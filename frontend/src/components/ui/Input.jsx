@@ -1,11 +1,12 @@
 import { forwardRef, useId } from 'react'
 import PropTypes from 'prop-types'
+import { cn } from '../../lib/utils'
 
 const baseFieldClasses =
-  'w-full rounded-[8px] border border-surface-700 bg-surface-925 px-3 text-sm text-surface-100 placeholder:text-surface-600 transition-colors focus:outline-none focus:border-primary-400/70 focus:ring-1 focus:ring-primary-400/25 disabled:cursor-not-allowed disabled:opacity-50'
+  'w-full rounded-[10px] border border-line-strong bg-surface px-3.5 text-sm text-ink placeholder:text-ink-500 transition-colors focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:opacity-50 shadow-soft'
 
 const sizeClasses = {
-  md: 'h-9 text-sm',
+  md: 'h-10 text-sm',
   lg: 'h-11 text-sm',
 }
 
@@ -21,10 +22,10 @@ export const Input = forwardRef(
     return (
       <div className="w-full">
         {label && (
-          <label htmlFor={inputId} className="mb-1.5 block font-mono text-[11px] font-medium uppercase tracking-wider text-surface-400">
+          <label htmlFor={inputId} className="mb-1.5 block text-[13px] font-medium text-ink-200">
             {label}
             {props.required && (
-              <span className="ml-1 text-primary-400" aria-hidden="true">
+              <span className="ml-1 text-primary-600" aria-hidden="true">
                 *
               </span>
             )}
@@ -33,18 +34,23 @@ export const Input = forwardRef(
         <input
           ref={ref}
           id={inputId}
-          className={`${baseFieldClasses} ${sizeClasses[size]} ${error ? 'border-red-500/80 focus:border-red-500 focus:ring-red-500/30' : ''} ${className}`}
+          className={cn(
+            baseFieldClasses,
+            sizeClasses[size],
+            error ? 'border-danger-400 focus:border-danger-400 focus:ring-danger-100' : '',
+            className
+          )}
           aria-invalid={!!error}
           aria-describedby={describedBy}
           {...props}
         />
         {hint && !error && (
-          <p id={`${inputId}-hint`} className="mt-1.5 text-xs text-surface-500">
+          <p id={`${inputId}-hint`} className="mt-1.5 text-xs text-ink-400">
             {hint}
           </p>
         )}
         {error && (
-          <p id={`${inputId}-error`} className="mt-1.5 text-xs text-red-400" role="alert">
+          <p id={`${inputId}-error`} className="mt-1.5 text-xs text-danger-600" role="alert">
             {error}
           </p>
         )}

@@ -11,20 +11,20 @@ AuthLayout.propTypes = {
 
 export function AuthLayout({ children, altTitle, altHref, altLink }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface-950 px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-ink app-ambient">
       <div className="w-full max-w-md">
         <div className="mb-8 flex justify-center">
           <Logo to="/" />
         </div>
-        <div className="rounded-2xl border border-surface-800 bg-surface-900 p-6 shadow-2xl sm:p-8">
+        <div className="rounded-xl border border-line bg-surface p-6 shadow-raised sm:p-8">
           {children}
         </div>
         {altTitle && (
-          <p className="mt-6 text-center text-sm text-surface-400">
+          <p className="mt-6 text-center text-sm text-ink-400">
             {altTitle}{' '}
             <Link
               to={altHref}
-              className="font-medium text-primary-400 transition-colors hover:text-primary-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 rounded"
+              className="font-medium text-primary-600 transition-colors hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 rounded"
             >
               {altLink}
             </Link>

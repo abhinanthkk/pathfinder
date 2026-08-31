@@ -1,277 +1,327 @@
-import { useState, useRef, useEffect } from 'react'
-import PropTypes from 'prop-types'
-import { Sparkles, X, Send, Bot, User, ArrowRight, CornerDownLeft } from 'lucide-react'
-import { AnimatePresence, motion } from 'framer-motion'
-import { Button } from '../ui/Button'
-import { EASE } from '../../lib/motion'
-import api from '../../services/api'
-import useUserStore from '../../store/useUserStore'
-import usePathStore from '../../store/usePathStore'
+import { useState, useRef, useEffect, useCallback } from'react'
+import PropTypes from'prop-types'
+import {
+ Sparkles, X, Send, Bot, CornerDownLeft, Check,
+ Zap, Target, TrendingUp, Gauge,
+} from'lucide-react'
+import { AnimatePresence, motion } from'framer-motion'
+import { EASE, DURATION } from'../../lib/motion'
+import api from'../../services/api'
+import useUserStore from'../../store/useUserStore'
+import usePathStore from'../../store/usePathStore'
+import { cn } from'../../lib/utils'
 
 const QUICK_PROMPTS = [
-  { id: 'next', label: 'What should I learn next?' },
-  { id: 'milestone', label: 'Explain my current milestone' },
-  { id: 'progress', label: 'Review my progress' },
-  { id: 'gaps', label: 'Identify my skill gaps' },
+ { id:'next', label:'What should I learn next?', icon: Zap, send:'What should I learn next?' },
+ { id:'milestone', label:'Explain current milestone', icon: Target, send:'Explain my current milestone' },
+ { id:'progress', label:'Review my progress', icon: TrendingUp, send:'Review my progress' },
+ { id:'gaps', label:'Identify skill gaps', icon: Gauge, send:'Identify my skill gaps' },
 ]
 
+const INITIAL_MESSAGE = {
+ role:'assistant',
+ content:
+'Welcome to Pathfinder AI. I am your specialized learning advisor, synchronized with your active roadmap and skill verification graph. How can I assist your engineering progression today?',
+ time: new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }),
+}
+
 AskPathfinder.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
+ isOpen: PropTypes.bool.isRequired,
+ onClose: PropTypes.func.isRequired,
 }
 
 export function AskPathfinder({ isOpen, onClose }) {
-  const [messages, setMessages] = useState([
-    {
-      role: 'assistant',
-      content:
-        'Welcome to Pathfinder AI. I am your specialized learning advisor, synchronized with your active roadmap and skill verification graph. How can I assist your engineering progression today?',
-    },
-  ])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const chatEndRef = useRef(null)
-  const inputRef = useRef(null)
-  const drawerRef = useRef(null)
+ const [messages, setMessages] = useState([INITIAL_MESSAGE])
+ const [input, setInput] = useState('')
+ const [loading, setLoading] = useState(false)
+ const chatEndRef = useRef(null)
+ const inputRef = useRef(null)
+ const messageListRef = useRef(null)
 
-  const { profile } = useUserStore()
-  const { path } = usePathStore()
+ const { profile } = useUserStore()
+ const { path } = usePathStore()
 
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 150)
-    }
-  }, [isOpen])
+ // Keep background scroll locked while the drawer is open.
+ useEffect(() => {
+ if (!isOpen) return undefined
+ const prevOverflow = document.body.style.overflow
+ document.body.style.overflow ='hidden'
+ const t = setTimeout(() => inputRef.current?.focus(), 120)
+ return () => {
+ clearTimeout(t)
+ document.body.style.overflow = prevOverflow
+ }
+ }, [isOpen])
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
+ // Auto-expand the textarea as the user types.
+ useEffect(() => {
+ const el = inputRef.current
+ if (!el) return
+ el.style.height ='auto'
+ el.style.height =`${Math.min(el.scrollHeight, 128)}px`
+ }, [input])
 
-  // Escape key handler
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose])
+ useEffect(() => {
+ chatEndRef.current?.scrollIntoView({ behavior:'smooth', block:'end' })
+ }, [messages, loading])
 
-  const handleSend = async (queryText) => {
-    const textToSend = queryText || input
-    if (!textToSend.trim() || loading) return
+ useEffect(() => {
+ const handleKeyDown = (e) => {
+ if (e.key ==='Escape' && isOpen) onClose()
+ }
+ window.addEventListener('keydown', handleKeyDown)
+ return () => window.removeEventListener('keydown', handleKeyDown)
+ }, [isOpen, onClose])
 
-    const userMsg = textToSend.trim()
-    setInput('')
-    setMessages((prev) => [...prev, { role: 'user', content: userMsg }])
-    setLoading(true)
+ const appendMessage = useCallback((role, content) => {
+ setMessages((prev) => [
+ ...prev,
+ {
+ role,
+ content,
+ time: new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }),
+ },
+ ])
+ }, [])
 
-    try {
-      let queryPrompt = userMsg
-      if (userMsg === 'Explain my current milestone') {
-        const currentMilestone = path?.milestones?.find((m) =>
-          m.nodes?.some((n) => n.status === 'in_progress' || n.status === 'available')
-        ) || path?.milestones?.[0]
-        if (currentMilestone) {
-          queryPrompt = `Please explain my current milestone "${currentMilestone.title}" (Milestone #${currentMilestone.number}) in detail, why it is sequenced here, and how to master it efficiently.`
-        }
-      } else if (userMsg === 'Identify my skill gaps') {
-        queryPrompt = `Review my current target role (${profile?.target_role || profile?.goal || 'Engineering'}) and tell me what skill gaps I need to address next.`
-      }
+ const handleSend = async (queryText) => {
+ const textToSend = (queryText || input).trim()
+ if (!textToSend || loading) return
 
-      const res = await api.sendChatMessage(
-        queryPrompt,
-        messages.map((m) => ({ role: m.role, content: m.content }))
-      )
+ setInput('')
+ appendMessage('user', textToSend)
+ setLoading(true)
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: res.reply || 'Analysis completed according to your learning path.',
-        },
-      ])
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content:
-            'Unable to communicate with the Pathfinder AI advisor. Please check your network connection and try again.',
-        },
-      ])
-    } finally {
-      setLoading(false)
-    }
-  }
+ try {
+ let queryPrompt = textToSend
+ if (textToSend ==='Explain my current milestone') {
+ const currentMilestone =
+ path?.milestones?.find((m) =>
+ m.nodes?.some((n) => n.status ==='in_progress' || n.status ==='available')
+ ) || path?.milestones?.[0]
+ if (currentMilestone) {
+ queryPrompt =`Please explain my current milestone"${currentMilestone.title}" (Milestone #${currentMilestone.number}) in detail, why it is sequenced here, and how to master it efficiently.`
+ }
+ } else if (textToSend ==='Identify my skill gaps') {
+ queryPrompt =`Review my current target role (${profile?.target_role || profile?.goal ||'Engineering'}) and tell me what skill gaps I need to address next.`
+ }
 
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-[80] flex justify-end"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="assistant-title"
-        >
-          {/* Backdrop */}
-          <motion.div
-            className="fixed inset-0 bg-black/60 backdrop-blur-[2px]"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15, ease: EASE }}
-            onClick={onClose}
-            aria-hidden="true"
-          />
+ const res = await api.sendChatMessage(
+ queryPrompt,
+ messages.map((m) => ({ role: m.role, content: m.content }))
+ )
 
-          {/* Assistant Drawer Panel */}
-          <motion.div
-            ref={drawerRef}
-            initial={{ x: 420 }}
-            animate={{ x: 0 }}
-            exit={{ x: 420 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 38 }}
-            className="relative z-10 flex h-full w-full max-w-lg flex-col border-l border-surface-700 bg-surface-950 shadow-2xl"
-          >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-surface-800 px-5 py-4 bg-surface-900/70">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-[5px] border border-primary-400/40 bg-primary-400/10">
-              <Sparkles className="h-3.5 w-3.5 text-primary-400" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="font-mono text-[10px] font-medium uppercase tracking-widest text-primary-400">
-                &gt; PATHFINDER AI
-              </p>
-              <h2 id="assistant-title" className="text-sm font-semibold text-white">
-                YOUR LEARNING ASSISTANT
-              </h2>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="hidden sm:inline-flex items-center gap-1 rounded-[4px] border border-surface-700 bg-surface-850 px-2 py-0.5 font-mono text-[10px] text-surface-400 uppercase">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              ONLINE
-            </span>
-            <button
-              onClick={onClose}
-              className="rounded-[6px] p-1.5 text-surface-400 transition-colors hover:bg-surface-800 hover:text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400"
-              aria-label="Close assistant"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
+ appendMessage('assistant', res.reply ||'Analysis completed according to your learning path.')
+ } catch {
+ appendMessage(
+'assistant',
+'Unable to communicate with the Pathfinder AI advisor. Please check your network connection and try again.'
+ )
+ } finally {
+ setLoading(false)
+ }
+ }
 
-        {/* Quick Suggestion Chips */}
-        <div className="border-b border-surface-800/80 bg-surface-900/30 px-5 py-3">
-          <p className="mb-2 font-mono text-[10px] font-medium uppercase tracking-wider text-surface-500">
-            &gt; HOW CAN I HELP?
-          </p>
-          <div className="grid grid-cols-2 gap-1.5">
-            {QUICK_PROMPTS.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => handleSend(p.label)}
-                disabled={loading}
-                className="group flex items-center justify-between rounded-[6px] border border-surface-800 bg-surface-900/90 px-2.5 py-1.5 text-left text-xs font-medium text-surface-300 transition-all hover:border-primary-400/50 hover:bg-surface-850 hover:text-white disabled:opacity-50"
-              >
-                <span className="truncate">{p.label}</span>
-                <ArrowRight className="h-3 w-3 shrink-0 text-surface-500 transition-transform group-hover:translate-x-0.5 group-hover:text-primary-400" />
-              </button>
-            ))}
-          </div>
-        </div>
+ const handleSubmit = (e) => {
+ e.preventDefault()
+ handleSend()
+ }
 
-        {/* Message Stream */}
-        <div className="flex-1 space-y-4 overflow-y-auto p-5">
-          {messages.map((m, idx) => (
-            <div
-              key={idx}
-              className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}
-            >
-              <div className="mb-1 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-surface-500">
-                {m.role === 'user' ? (
-                  <>
-                    <span>&gt; YOU</span>
-                    <User className="h-2.5 w-2.5" />
-                  </>
-                ) : (
-                  <>
-                    <Bot className="h-2.5 w-2.5 text-primary-400" />
-                    <span className="text-primary-400/90">&gt; PATHFINDER AI</span>
-                  </>
-                )}
-              </div>
-              <div
-                className={`rounded-[8px] p-3.5 text-xs sm:text-sm leading-relaxed ${
-                  m.role === 'user'
-                    ? 'border border-primary-400/40 bg-primary-400/10 text-white max-w-[85%]'
-                    : 'border border-surface-800 bg-surface-900/90 text-surface-200 max-w-[95%]'
-                }`}
-              >
-                <p className="whitespace-pre-wrap">{m.content}</p>
-              </div>
-            </div>
-          ))}
+ const handleKeyDown = (e) => {
+ if (e.key ==='Enter' && !e.shiftKey) {
+ e.preventDefault()
+ handleSend()
+ }
+ }
 
-          {loading && (
-            <div className="flex flex-col items-start">
-              <div className="mb-1 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-primary-400">
-                <Bot className="h-2.5 w-2.5 text-primary-400" />
-                <span>&gt; ANALYZING CONTEXT</span>
-              </div>
-              <div className="flex items-center gap-2 rounded-[8px] border border-surface-800 bg-surface-900/90 p-3 text-xs text-surface-400">
-                <span className="h-1.5 w-1.5 animate-ping rounded-full bg-primary-400" />
-                <span className="font-mono">Processing path metadata…</span>
-              </div>
-            </div>
-          )}
-          <div ref={chatEndRef} />
-        </div>
+ const canSend = input.trim().length > 0 && !loading
 
-        {/* Input Bar */}
-        <div className="border-t border-surface-800 bg-surface-900/80 p-4">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              handleSend()
-            }}
-            className="relative flex items-center"
-          >
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask Pathfinder about skills, milestones, or concepts…"
-              disabled={loading}
-              className="h-10 w-full rounded-[6px] border border-surface-700 bg-surface-950 px-3.5 pr-20 text-xs sm:text-sm text-white placeholder:text-surface-600 transition-colors focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400 disabled:opacity-50"
-            />
-            <div className="absolute right-1.5 flex items-center gap-1">
-              <Button
-                type="submit"
-                size="sm"
-                disabled={!input.trim() || loading}
-                className="h-7 px-2.5 text-xs font-semibold"
-              >
-                <Send className="h-3 w-3" aria-hidden="true" />
-                <span className="hidden sm:inline">Ask</span>
-              </Button>
-            </div>
-          </form>
-          <div className="mt-2 flex items-center justify-between font-mono text-[10px] text-surface-500">
-            <span>Deterministic AI Advisor</span>
-            <span className="flex items-center gap-1">
-              Press Enter <CornerDownLeft className="h-2.5 w-2.5" />
-            </span>
-          </div>
-        </div>
-        </motion.div>
-      </div>
-      )}
-    </AnimatePresence>
-  )
+ return (
+ <AnimatePresence>
+ {isOpen && (
+ <motion.div
+ key="backdrop"
+ className="fixed inset-0 z-40"
+ initial={{ opacity: 0 }}
+ animate={{ opacity: 1 }}
+ exit={{ opacity: 0 }}
+ transition={{ duration: DURATION.fast, ease: EASE }}
+ >
+ <div
+ className="absolute inset-0 bg-[#0F172A]/15 backdrop-blur-[2px]"
+ onClick={onClose}
+ aria-hidden="true"
+ />
+ </motion.div>
+ )}
+
+ {isOpen && (
+ <motion.aside
+ key="drawer"
+ role="dialog"
+ aria-modal="true"
+ aria-labelledby="assistant-title"
+ initial={{ x:'100%', opacity: 0 }}
+ animate={{ x: 0, opacity: 1 }}
+ exit={{ x:'100%', opacity: 0 }}
+ transition={{ duration: 0.32, ease: EASE }}
+ className="fixed inset-y-0 right-0 z-50 flex h-full w-full flex-col border-l border-line bg-surface shadow-[-10px_0_40px_rgba(0,0,0,0.12)] sm:max-w-[420px] lg:max-w-[450px] xl:max-w-[480px]"
+ >
+ {/* Header */}
+ <header className="flex shrink-0 items-center justify-between border-b border-line bg-surface-secondary/50 px-5 py-4">
+ <div className="flex items-center gap-3">
+ <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-emphasis">
+ <Sparkles className="h-[18px] w-[18px]" aria-hidden="true" />
+ </div>
+ <div className="min-w-0">
+ <h2
+ id="assistant-title"
+ className="tech-label flex items-center gap-1.5 text-ink"
+ >
+ Pathfinder AI
+ </h2>
+ <p className="truncate text-[11px] text-ink-400">
+ Your personal learning assistant
+ </p>
+ </div>
+ </div>
+ <div className="flex items-center gap-2">
+ <span className="hidden items-center gap-1.5 rounded-full border border-success-200 bg-success-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success-600 sm:inline-flex">
+ <span className="h-1.5 w-1.5 rounded-full bg-success-500" />
+ Online
+ </span>
+ <button
+ onClick={onClose}
+ className="group rounded-lg p-2 text-ink-400 transition-colors duration-150 hover:bg-surface-secondary hover:text-ink focus:outline-none"
+ aria-label="Close assistant"
+ >
+ <X
+ className="h-[18px] w-[18px] transition-transform duration-150 group-hover:rotate-90"
+ aria-hidden="true"
+ />
+ </button>
+ </div>
+ </header>
+
+ {/* Quick actions */}
+ <div className="shrink-0 border-b border-line px-5 py-3">
+ <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-ink-400">
+ How can I help?
+ </p>
+ <div className="grid grid-cols-2 gap-1.5">
+ {QUICK_PROMPTS.map((p) => {
+ const Icon = p.icon
+ return (
+ <button
+ key={p.id}
+ type="button"
+ onClick={() => handleSend(p.send)}
+ disabled={loading}
+ className="group flex items-center gap-2 rounded-lg border border-line bg-surface-secondary/60 px-2.5 py-2 text-left text-[11px] font-medium text-ink-400 shadow-soft transition-all duration-150 hover:-translate-y-px hover:border-primary-200 hover:bg-primary-50/60 hover:shadow-card hover:text-primary-700 disabled:opacity-50"
+ >
+ <Icon
+ className="h-3.5 w-3.5 shrink-0 text-ai-500 transition-colors group-hover:text-primary-500"
+ aria-hidden="true"
+ />
+ <span className="truncate">{p.label}</span>
+ </button>
+ )
+ })}
+ </div>
+ </div>
+
+ {/* Messages */}
+ <div
+ ref={messageListRef}
+ className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-5 py-5 scrollbar-thin"
+ >
+ <div className="space-y-4">
+ {messages.map((m, idx) => {
+ const isUser = m.role ==='user'
+ return (
+ <motion.div
+ key={idx}
+ initial={{ opacity: 0, y: 10 }}
+ animate={{ opacity: 1, y: 0 }}
+ transition={{ duration: 0.22, ease: EASE }}
+ className={cn('flex', isUser ?'justify-end' :'justify-start')}
+ >
+ {!isUser && (
+ <div className="mr-2.5 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 text-white">
+ <Bot className="h-3.5 w-3.5" aria-hidden="true" />
+ </div>
+ )}
+ <div className={cn('flex max-w-[82%] flex-col', isUser ?'items-end' :'items-start')}>
+ <div
+ className={cn(
+'rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed',
+ isUser
+ ?'rounded-tr-sm bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-soft'
+ :'rounded-tl-sm border border-line bg-surface-secondary text-ink shadow-soft'
+ )}
+ >
+ <p className="whitespace-pre-wrap">{m.content}</p>
+ </div>
+ {m.time && (
+ <span className="mt-1 text-[9px] font-medium uppercase tracking-wide text-ink-400/70">
+ {m.time}
+ </span>
+ )}
+ </div>
+ </motion.div>
+ )
+ })}
+
+ {loading && (
+ <div className="flex justify-start">
+ <div className="mr-2.5 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 text-white">
+ <Bot className="h-3.5 w-3.5" aria-hidden="true" />
+ </div>
+ <div className="flex items-center gap-2 rounded-2xl rounded-tl-sm border border-line bg-surface-secondary px-3.5 py-2.5">
+ <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ai-500" />
+ <span className="text-xs text-ink-400">Analyzing your roadmap...</span>
+ </div>
+ </div>
+ )}
+ <div ref={chatEndRef} />
+ </div>
+ </div>
+
+ {/* Input */}
+ <div className="shrink-0 border-t border-line bg-surface-secondary/40 px-4 pt-3 [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]">
+ <form onSubmit={handleSubmit} className="flex items-end gap-2">
+ <textarea
+ ref={inputRef}
+ value={input}
+ onChange={(e) => setInput(e.target.value)}
+ onKeyDown={handleKeyDown}
+ rows={1}
+ placeholder="Ask Pathfinder about skills, milestones..."
+ aria-label="Message Pathfinder AI"
+ className="max-h-32 min-h-[44px] w-full resize-none rounded-xl border border-line-strong bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-500 outline-none transition-colors focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+ />
+ <button
+ type="submit"
+ disabled={!canSend}
+ className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-emphasis transition-all duration-150 hover:from-primary-600 hover:to-primary-700 disabled:cursor-not-allowed disabled:opacity-45"
+ aria-label="Send message"
+ >
+ <Send className="h-4 w-4" aria-hidden="true" />
+ </button>
+ </form>
+ <div className="mt-1.5 flex items-center justify-between text-[9px] font-medium text-ink-400/80">
+ <span className="flex items-center gap-1">
+ <CornerDownLeft className="h-2.5 w-2.5" aria-hidden="true" />
+ Enter to send
+ </span>
+ <span className="flex items-center gap-1">
+ <Check className="h-2.5 w-2.5" aria-hidden="true" />
+ Synchronized with your path
+ </span>
+ </div>
+ </div>
+ </motion.aside>
+ )}
+ </AnimatePresence>
+ )
 }

@@ -3,18 +3,18 @@ import { Badge } from '../ui/Badge'
 import { humanize } from '../../utils/labels'
 
 const STATUS_MAP = {
-  completed: { variant: 'success', label: 'COMPLETED' },
-  in_progress: { variant: 'primary', label: 'IN PROGRESS' },
-  available: { variant: 'info', label: 'READY' },
-  locked: { variant: 'neutral', label: 'LOCKED' },
-  skipped: { variant: 'neutral', label: 'SKIPPED' },
-  failed: { variant: 'danger', label: 'REVISIT' },
+  completed: { variant: 'success', label: 'Completed' },
+  in_progress: { variant: 'primary', label: 'In progress' },
+  available: { variant: 'info', label: 'Ready' },
+  locked: { variant: 'neutral', label: 'Locked' },
+  skipped: { variant: 'neutral', label: 'Skipped' },
+  failed: { variant: 'danger', label: 'Revisit' },
 }
 
 export function StatusBadge({ status, fallback = 'Unknown', className = '' }) {
   const meta = STATUS_MAP[status] || {
     variant: 'neutral',
-    label: (fallback || humanize(status)).toUpperCase(),
+    label: fallback || humanize(status),
   }
   return (
     <Badge variant={meta.variant} className={className}>
@@ -28,4 +28,3 @@ StatusBadge.propTypes = {
   fallback: PropTypes.string,
   className: PropTypes.string,
 }
-

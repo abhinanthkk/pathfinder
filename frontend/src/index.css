@@ -2,6 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Light warm-amber theme ─────────────────────────────────────── */
+:root {
+  --background: 246 247 249;        /* #F6F7F9 soft light warm gray */
+  --surface: 255 255 255;           /* #FFFFFF white cards */
+  --surface-secondary: 250 251 252; /* subtle off-white */
+  --surface-elevated: 255 255 255;
+  --primary: 217 154 0;             /* #D99A00 gold */
+  --primary-hover: 197 139 0;       /* #C58B00 hover gold */
+  --primary-light: 255 248 232;     /* #FFF8E8 soft amber bg */
+  --success: 16 185 129;
+  --warning: 245 158 11;
+  --danger: 239 68 68;
+  --streak: 249 115 22;             /* warm orange */
+  --badge: 217 154 0;
+  --ai: 217 154 0;                  /* warm gold AI accent */
+  --text-primary: 31 41 55;         /* #1F2937 charcoal */
+  --text-secondary: 100 116 139;    /* #64748B slate */
+  --text-tertiary: 148 163 184;     /* #94A3B8 muted */
+  --border: 226 229 234;            /* #E2E5EA */
+  --border-strong: 217 222 229;     /* #D9DEE5 */
+}
+
+/* ── Base resets ───────────────────────────────────────────────── */
 * {
   margin: 0;
   padding: 0;
@@ -10,19 +33,18 @@
 
 html {
   scroll-behavior: smooth;
-  color-scheme: dark;
+  color-scheme: light;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
 body {
-  background-color: #09090b;
-  color: #f4f4f5;
+  background-color: rgb(var(--background));
+  color: rgb(var(--text-primary));
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* Editorial headings: tight tracking, crisp weight steps */
 h1, h2, h3, h4, h5 {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   letter-spacing: -0.02em;
@@ -30,71 +52,59 @@ h1, h2, h3, h4, h5 {
 }
 
 ::selection {
-  background-color: rgba(250, 204, 21, 0.28);
-  color: #fefce8;
+  background-color: rgba(217, 154, 0, 0.18);
+  color: #1F2937;
 }
 
-.font-mono {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-feature-settings: 'tnum' 1;
-}
-
-/* Technical label style — small, tracked-out, uppercase */
+/* ── Utility classes ───────────────────────────────────────────── */
 .tech-label {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-/* Quieter, section-level label */
-.section-label {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
-/* Numeric emphasis — tabular figures for calm stat alignment */
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .stat-number {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
 
-/* Hairline separator used across the editorial layout */
 .hairline {
   height: 1px;
-  background: #27272a;
+  background: rgb(var(--border));
 }
 
-/* Small bordered pill used for inline tags/badges */
 .badge-line {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  border: 1px solid #27272a;
-  background-color: #18181b;
+  border: 1px solid rgb(var(--border));
+  background-color: rgb(var(--surface));
   border-radius: 9999px;
   padding: 0.15rem 0.5rem;
-  color: #a1a1aa;
+  color: rgb(var(--text-secondary));
 }
 
-/* Visible, consistent keyboard focus across the app */
+/* ── Focus ─────────────────────────────────────────────────────── */
 :where(button, a, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid rgba(250, 204, 21, 0.65);
+  outline: 2px solid rgba(217, 154, 0, 0.55);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
-/* Skeleton shimmer */
+/* ── Skeleton shimmer ──────────────────────────────────────────── */
 .skeleton-shimmer {
   position: relative;
   overflow: hidden;
-  background-color: #1d1d22;
-  border-radius: 6px;
+  background-color: rgb(var(--surface-secondary));
+  border-radius: 8px;
 }
 .skeleton-shimmer::after {
   content: '';
@@ -104,10 +114,10 @@ h1, h2, h3, h4, h5 {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.06),
+    rgba(255, 255, 255, 0.6),
     transparent
   );
-  animation: skeleton-loading 1.6s cubic-bezier(0.33, 1, 0.68, 1) infinite;
+  animation: skeleton-loading 1.4s cubic-bezier(0.33, 1, 0.68, 1) infinite;
 }
 @keyframes skeleton-loading {
   100% {
@@ -115,24 +125,61 @@ h1, h2, h3, h4, h5 {
   }
 }
 
-/* Scrollbars */
+/* ── Scrollbars ────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2a30;
+  background: rgb(var(--border-strong));
   border-radius: 8px;
-  border: 2px solid #09090b;
+  border: 2px solid rgb(var(--background));
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: rgb(var(--text-tertiary));
 }
 
-/* Preference-aware motion: calm everything down when requested */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ── Range input ───────────────────────────────────────────────── */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgb(var(--border));
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: rgb(var(--surface));
+  border: 3px solid rgb(var(--primary));
+  box-shadow: 0 2px 6px rgba(31, 35, 60, 0.2);
+  cursor: pointer;
+}
+input[type='range']::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: rgb(var(--surface));
+  border: 3px solid rgb(var(--primary));
+  box-shadow: 0 2px 6px rgba(31, 35, 60, 0.2);
+  cursor: pointer;
+}
+
+/* ── Preference-aware motion ───────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -10,21 +10,21 @@ const ToastContext = createContext(null)
 const TOAST_STYLES = {
   success: {
     icon: CheckCircle2,
-    ring: 'border-emerald-500/30',
-    iconColor: 'text-emerald-400',
-    label: 'DONE',
+    ring: 'border-success-200',
+    iconColor: 'text-success-600',
+    label: 'Success',
   },
   error: {
     icon: AlertCircle,
-    ring: 'border-red-500/30',
-    iconColor: 'text-red-400',
-    label: 'ERROR',
+    ring: 'border-danger-200',
+    iconColor: 'text-danger-600',
+    label: 'Error',
   },
   info: {
     icon: Info,
-    ring: 'border-primary-400/30',
-    iconColor: 'text-primary-400',
-    label: 'PATHFINDER',
+    ring: 'border-primary-200',
+    iconColor: 'text-primary-600',
+    label: 'Pathfinder',
   },
 }
 
@@ -93,19 +93,19 @@ export function ToastProvider({ children }) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 6, scale: 0.98 }}
                 transition={{ type: 'spring', stiffness: 250, damping: 28 }}
-                className={`pointer-events-auto relative flex items-start gap-3 overflow-hidden rounded-[10px] border bg-surface-925/95 p-3.5 pr-10 shadow-panel backdrop-blur-md ${style.ring}`}
+                className={`pointer-events-auto relative flex items-start gap-3 overflow-hidden rounded-lg border bg-surface p-3.5 pr-10 shadow-raised backdrop-blur-md ${style.ring}`}
               >
                 <span className={`mt-0.5 shrink-0 ${style.iconColor}`}>
                   <Icon className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="section-label text-surface-500">{style.label}</p>
-                  <p className="mt-0.5 text-xs leading-snug text-surface-100">{t.message}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">{style.label}</p>
+                  <p className="mt-0.5 text-xs leading-snug text-ink">{t.message}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => dismiss(t.id)}
-                  className="absolute right-1.5 top-1.5 rounded p-1 text-surface-500 transition-colors hover:text-surface-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400"
+                  className="absolute right-1.5 top-1.5 rounded p-1 text-ink-500 transition-colors hover:text-ink focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400"
                   aria-label="Dismiss notification"
                 >
                   <X className="h-3.5 w-3.5" aria-hidden="true" />

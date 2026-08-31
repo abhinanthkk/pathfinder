@@ -18,12 +18,8 @@ import { useState } from 'react'
  * data pages subscribe to.
  *
  * The switcher is calm: rows reveal on mount, the active path carries a quiet
- * gold indicator that follows the selection, and switching never blanks the
- * page — the subscribed data view re-staggers once the new path resolves.
- *
- * Users may hold an unlimited number of learning paths. The only hard rule is
- * that at least one path must remain, so the final path cannot be deleted.
- * Deleting a path uses the editorial destructive dialog.
+ * indicator that follows the selection, and switching never blanks the page —
+ * the subscribed data view re-staggers once the new path resolves.
  */
 export function RoadmapSwitcher() {
   const navigate = useNavigate()
@@ -73,28 +69,28 @@ export function RoadmapSwitcher() {
   }
 
   const rowCls = (isActive, kind) =>
-    `group relative flex w-full items-center gap-3 overflow-hidden rounded-[10px] border px-3 py-3 text-left transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400 ${
+    `group relative flex w-full items-center gap-3 overflow-hidden rounded-lg border px-3 py-3 text-left transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400 ${
       isActive
-        ? 'border-primary-400/40 bg-primary-400/[0.06]'
+        ? 'border-primary-200 bg-primary-50/70'
         : kind === 'completed'
-          ? 'border-surface-800 bg-surface-900/40 hover:border-emerald-500/30 hover:bg-surface-900/70'
-          : 'border-surface-800 bg-surface-900/40 hover:border-surface-700 hover:bg-surface-900/70'
+          ? 'border-line bg-surface hover:border-emerald-200 hover:bg-emerald-50/40'
+          : 'border-line bg-surface hover:border-primary-200 hover:bg-primary-50/40'
     }`
 
   return (
-    <Stagger className="flex flex-col gap-3 rounded-[12px] border border-surface-800 bg-surface-925/60 p-4 sm:p-5" staggerChildren={0.06}>
+    <Stagger className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4 shadow-card sm:p-5" staggerChildren={0.06}>
       <StaggerItem>
         <div className="mb-1 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-primary-400">
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-primary-700">
             <Layers className="h-3.5 w-3.5" aria-hidden="true" />
-            {`>`} LEARNING PATHS
-            <span className="rounded-[3px] border border-surface-700 bg-surface-900 px-1.5 py-0.5 text-surface-400">
+            Learning paths
+            <span className="rounded-md border border-line bg-surface-secondary px-1.5 py-0.5 font-semibold text-ink-400">
               {totalGoals}
             </span>
           </div>
           <button
             onClick={() => navigate('/onboarding')}
-            className="flex items-center gap-1.5 rounded-[6px] border border-surface-700 px-2.5 py-1 font-mono text-[10px] text-surface-300 transition-all hover:border-primary-400/50 hover:text-primary-400 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400"
+            className="flex items-center gap-1.5 rounded-lg border border-line-strong px-2.5 py-1 text-xs font-semibold text-ink-400 transition-all hover:border-primary-300 hover:text-primary-700 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400"
           >
             <Plus className="h-3 w-3" aria-hidden="true" />
             Add Path
@@ -103,18 +99,18 @@ export function RoadmapSwitcher() {
       </StaggerItem>
 
       <StaggerItem>
-        <div className="h-px w-full bg-surface-800/80" aria-hidden="true" />
+        <div className="h-px w-full bg-line" aria-hidden="true" />
       </StaggerItem>
 
       {status === 'loading' && (
-        <p className="py-1 font-mono text-[10px] text-surface-600">Loading paths…</p>
+        <p className="py-1 text-[10px] text-ink-400">Loading paths…</p>
       )}
 
       {status !== 'loading' && totalGoals === 0 && (
         <StaggerItem>
           <button
             onClick={() => navigate('/onboarding')}
-            className="flex w-full items-center gap-2 rounded-[10px] border border-dashed border-surface-700 px-3 py-3 text-left font-mono text-[10px] text-surface-400 transition-all hover:border-primary-400/50 hover:text-primary-400 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400"
+            className="flex w-full items-center gap-2 rounded-lg border border-dashed border-line-strong px-3 py-3 text-left text-xs font-medium text-ink-400 transition-all hover:border-primary-300 hover:text-primary-700 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-400"
           >
             <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             Create your first learning path
@@ -133,7 +129,7 @@ export function RoadmapSwitcher() {
                   {isActive && (
                     <motion.span
                       layoutId="active-path-marker"
-                      className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-primary-400"
+                      className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-primary-600"
                       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                       aria-hidden="true"
                     />
@@ -147,36 +143,36 @@ export function RoadmapSwitcher() {
                   >
                     <span
                       className={`h-2 w-2 shrink-0 rounded-full ${
-                        isActive ? 'bg-primary-400' : 'bg-surface-600'
+                        isActive ? 'bg-primary-600' : 'bg-line-strong'
                       }`}
                       aria-hidden="true"
                     />
                     <span className="min-w-0 flex-1">
                       <span
                         className={`block truncate text-sm font-medium ${
-                          isActive ? 'text-primary-200' : 'text-surface-200'
+                          isActive ? 'text-primary-700' : 'text-ink'
                         }`}
                       >
                         {g.role_label}
                         {isSwitching && (
-                          <span className="ml-2 inline-block animate-pulse font-mono text-[10px] font-normal text-primary-400/80">
+                          <span className="ml-2 inline-block animate-pulse text-[10px] font-normal text-primary-600/70">
                             switching…
                           </span>
                         )}
                       </span>
-                      <span className="flex items-center gap-1.5 font-mono text-[10px] text-surface-500">
+                      <span className="flex items-center gap-1.5 text-[10px] text-ink-400">
                         <CountUp end={Math.round(g.progress_percentage || 0)} suffix="%" />
                         {g.current_step_title ? ` · ${g.current_step_title}` : ''}
                       </span>
                     </span>
                   </button>
                   {isActive && (
-                    <Check className="mr-1 h-3.5 w-3.5 shrink-0 text-primary-400" aria-hidden="true" />
+                    <Check className="mr-1 h-3.5 w-3.5 shrink-0 text-primary-600" aria-hidden="true" />
                   )}
                   <button
                     onClick={() => setDeleteTarget(g)}
                     disabled={totalGoals <= 1}
-                    className="mr-1 shrink-0 rounded-[6px] p-1.5 text-surface-600 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30 focus:outline-none focus-visible:ring-1 focus-visible:ring-red-400"
+                    className="mr-1 shrink-0 rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-danger-50 hover:text-danger-600 disabled:cursor-not-allowed disabled:opacity-30 focus:outline-none focus-visible:ring-1 focus-visible:ring-danger-400"
                     aria-label={`Delete ${g.role_label} path`}
                     title={totalGoals <= 1 ? 'You need at least one learning path' : `Delete ${g.role_label} path`}
                   >
@@ -191,7 +187,7 @@ export function RoadmapSwitcher() {
 
       {completedGoals.length > 0 && (
         <StaggerItem>
-          <p className="mt-1 mb-1 font-mono text-[10px] uppercase tracking-widest text-surface-600">
+          <p className="mb-1 mt-1 text-[10px] font-semibold uppercase tracking-wider text-ink-400">
             Completed
           </p>
         </StaggerItem>
@@ -207,7 +203,7 @@ export function RoadmapSwitcher() {
                   {isActive && (
                     <motion.span
                       layoutId="active-path-marker"
-                      className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-emerald-400"
+                      className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-success-500"
                       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                       aria-hidden="true"
                     />
@@ -220,7 +216,7 @@ export function RoadmapSwitcher() {
                     aria-label={`Switch to completed path ${g.role_label}`}
                   >
                     <span
-                      className="flex h-4 w-4 shrink-0 items-center justify-center text-emerald-400"
+                      className="flex h-4 w-4 shrink-0 items-center justify-center text-success-500"
                       aria-hidden="true"
                     >
                       <CheckCircle2 className="h-4 w-4" />
@@ -228,23 +224,23 @@ export function RoadmapSwitcher() {
                     <span className="min-w-0 flex-1">
                       <span
                         className={`block truncate text-sm font-medium ${
-                          isActive ? 'text-emerald-300' : 'text-surface-300'
+                          isActive ? 'text-success-700' : 'text-ink-300'
                         }`}
                       >
                         {g.role_label}
                       </span>
-                      <span className="block font-mono text-[10px] uppercase tracking-wider text-emerald-500">
+                      <span className="block text-[10px] font-semibold uppercase tracking-wider text-success-600">
                         Completed · 100%
                       </span>
                     </span>
                   </button>
                   {isActive && (
-                    <Check className="mr-1 h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden="true" />
+                    <Check className="mr-1 h-3.5 w-3.5 shrink-0 text-success-600" aria-hidden="true" />
                   )}
                   <button
                     onClick={() => setDeleteTarget(g)}
                     disabled={totalGoals <= 1}
-                    className="mr-1 shrink-0 rounded-[6px] p-1.5 text-surface-600 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30 focus:outline-none focus-visible:ring-1 focus-visible:ring-red-400"
+                    className="mr-1 shrink-0 rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-danger-50 hover:text-danger-600 disabled:cursor-not-allowed disabled:opacity-30 focus:outline-none focus-visible:ring-1 focus-visible:ring-danger-400"
                     aria-label={`Delete completed path ${g.role_label}`}
                     title={totalGoals <= 1 ? 'You need at least one learning path' : `Delete ${g.role_label} path`}
                   >
@@ -261,7 +257,7 @@ export function RoadmapSwitcher() {
         open={Boolean(deleteTarget)}
         onClose={() => setDeleteTarget(null)}
         destructive
-        tag="DELETE PATH"
+        tag="Delete path"
         title={`Delete ${deleteTarget?.role_label || 'learning path'}?`}
         description="This permanently removes the path, its roadmap, progress, skills and badges. This cannot be undone."
         footer={
@@ -276,7 +272,7 @@ export function RoadmapSwitcher() {
           </>
         }
       >
-        <p className="text-sm leading-relaxed text-surface-400">
+        <p className="text-sm leading-relaxed text-ink-400">
           {deleteTarget?.status === 'active'
             ? `"${deleteTarget?.role_label}" will be removed from your learning paths.`
             : `The completed path "${deleteTarget?.role_label}" will be removed.`}

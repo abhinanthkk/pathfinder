@@ -9,7 +9,6 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import NotFoundPage from './pages/NotFoundPage'
 
-// Lazy-load heavy authenticated screens to keep the initial bundle lean.
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'))
 const RoadmapPage = lazy(() => import('./pages/RoadmapPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
@@ -18,13 +17,12 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 
 function LoadingScreen() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface-950">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background transition-colors duration-300">
       <Spinner label="Loading…" />
     </div>
   )
 }
 
-/** Resets scroll between route transitions so every page starts at the top. */
 function ScrollToTop() {
   const { pathname } = useLocation()
   const first = useRef(true)
@@ -116,7 +114,7 @@ function AnimatedRoutes() {
 
 function App() {
   return (
-    <div className="min-h-screen bg-surface-950 font-sans text-surface-100">
+    <div className="min-h-screen bg-background font-sans text-ink">
       <ScrollToTop />
       <AnimatedRoutes />
     </div>

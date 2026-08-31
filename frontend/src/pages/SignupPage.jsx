@@ -61,7 +61,7 @@ const LegacySignup = () => {
       {errors.form && (
         <div
           role="alert"
-          className="mb-4 rounded-[6px] border border-red-500/30 bg-red-500/10 px-3.5 py-2 font-mono text-xs text-red-300"
+          className="mb-4 rounded-lg border border-danger-200 bg-danger-50 px-3.5 py-2 text-xs text-danger-700"
         >
           {errors.form}
         </div>
@@ -105,9 +105,9 @@ const LegacySignup = () => {
         </div>
       </form>
 
-      <div className="mt-6 border-t border-surface-800 pt-4 text-center font-mono text-xs text-surface-400">
+      <div className="mt-6 border-t border-line pt-4 text-center text-xs text-ink-400">
         <span>Already have an account? </span>
-        <Link to="/login" className="font-semibold text-primary-400 transition-colors hover:text-primary-300">
+        <Link to="/login" className="font-semibold text-primary-600 transition-colors hover:text-primary-700">
           Log in →
         </Link>
       </div>
